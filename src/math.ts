@@ -152,7 +152,13 @@ function calculateGroundSpeed(ktas: number, heading: number, windDirectionCardin
   return Math.round(groundSpeed);
 }
 
-// Vertical Speed = V GS ×tan(γ)×101.27
+/**
+ * Calculate the vertical speed from the ground speed and the gamma angle.
+ *  
+ * @param groundSpeed - The ground speed in knots
+ * @param gamma - The gamma angle in degrees
+ * @returns The vertical speed in feet per minute
+ */
 function calculateVerticalSpeed(groundSpeed: number, gamma: number): number {
   return Math.round(groundSpeed * Math.tan(degToRad(gamma)) * 101.27);
 }
