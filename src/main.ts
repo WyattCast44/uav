@@ -86,6 +86,8 @@ type UAVState = {
   commandedGamma: number;
   verticalSpeed: number;
   position: THREE.Vector3;
+  rollRateDegPerSec: number;
+  compensatedRollRate: number;
 };
 
 const wind: Wind = {
@@ -96,7 +98,7 @@ const wind: Wind = {
 const uavState: UAVState = {
   tailNumber: "505",
   airspeed: 120,
-  altitude: 1000,
+  altitude: 5000,
   heading: 360,
   course: undefined,
   mode: ControlMode.MANUAL,
@@ -110,7 +112,9 @@ const uavState: UAVState = {
   gamma: 0,
   commandedGamma: 0,
   verticalSpeed: 0,
-  position: new THREE.Vector3(0, 1000, 0),
+  position: new THREE.Vector3(0, 5000, 0),
+  rollRateDegPerSec: 10,
+  compensatedRollRate: 10 * .6,
 };
 
 uavState.ktas = calculateKTAS(uavState.airspeed, uavState.altitude);
@@ -960,7 +964,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cameraFOV,
     hudContainer.clientWidth / hudContainer.clientHeight,
     0.1,
-    10_000
+    100_000
   );
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(hudContainer.clientWidth, hudContainer.clientHeight);
@@ -996,9 +1000,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createGround() {
-    const groundGeometry = new THREE.PlaneGeometry(10000, 10000);
+    const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: "burlywood", // brown
+      color: "burlywood",
       roughness: 0.8,
       metalness: 0.2,
     });
@@ -1010,8 +1014,8 @@ document.addEventListener("DOMContentLoaded", () => {
     scene.add(ground);
 
     // Add a grid for reference
-    const gridHelper = new THREE.GridHelper(10_000, 10);
-    gridHelper.position.y = 0.1; // Just above the ground
+    const gridHelper = new THREE.GridHelper(100_000, 100);
+    gridHelper.position.y = 0.1;
     scene.add(gridHelper);
   }
 
@@ -1082,6 +1086,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // calculate the altitude change based on vertical speed
     simulation.uavState.altitude += simulation.uavState.verticalSpeed * 0.01;
 
+    // calculate the new heading based on the bank angle
+    simulation.uavState.heading += simulation.uavState.bank * 0.01;
     // update the position of the uav
     simulation.uavState.position.y = simulation.uavState.altitude;
   }
@@ -1095,7 +1101,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     // Calculate a point ahead of the aircraft at the current heading
-    const lookAheadDistance = 2000; // meters ahead
+    const lookAheadDistance = Math.max(2000, uavState.altitude * 2);
     
     // First calculate the point at the horizon (level with aircraft)
     const horizonPoint = new THREE.Vector3(

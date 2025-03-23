@@ -1,4 +1,24 @@
 /**
+ * Convert a feet value to a meters value
+ *
+ * @param feet - The feet value to convert
+ * @returns The meters value
+ */
+function feetToMeters(feet: number): number {
+  return feet * 3.28084;
+}
+
+/**
+ * Convert a meters value to a feet value
+ *
+ * @param meters - The meters value to convert
+ * @returns The feet value
+ */
+function metersToFeet(meters: number): number {
+  return meters * 0.3048;
+}
+
+/**
  * Convert a degree value to a radian value
  *
  * @param deg - The degree value to convert
@@ -102,7 +122,12 @@ function calculateGsAtBankAngle(bankAngle: number): number {
  * @param windSpeed - The wind speed in knots
  * @returns The wind corrected course in degrees
  */
-function calculateWindCorrectedCourse(ktas: number, heading: number, windDirectionCardinal: number, windSpeed: number): number {
+function calculateWindCorrectedCourse(
+  ktas: number,
+  heading: number,
+  windDirectionCardinal: number,
+  windSpeed: number
+): number {
   let windDirectionToCardinal = windDirectionCardinal + 180;
   let windDirectionToRadians = degToRad(windDirectionToCardinal);
   let headingRadians = degToRad(heading);
@@ -111,7 +136,7 @@ function calculateWindCorrectedCourse(ktas: number, heading: number, windDirecti
   let tasEast = ktas * Math.sin(headingRadians);
 
   let windNorth = windSpeed * Math.cos(windDirectionToRadians);
-  let windEast = windSpeed * Math.sin(windDirectionToRadians);  
+  let windEast = windSpeed * Math.sin(windDirectionToRadians);
 
   let groundSpeedNorth = tasNorth + windNorth;
   let groundSpeedEast = tasEast + windEast;
@@ -133,7 +158,12 @@ function calculateWindCorrectedCourse(ktas: number, heading: number, windDirecti
  * @param windSpeed - The wind speed in knots
  * @returns The ground speed in knots
  */
-function calculateGroundSpeed(ktas: number, heading: number, windDirectionCardinal: number, windSpeed: number): number {
+function calculateGroundSpeed(
+  ktas: number,
+  heading: number,
+  windDirectionCardinal: number,
+  windSpeed: number
+): number {
   let windDirectionToCardinal = windDirectionCardinal + 180;
   let windDirectionToRadians = degToRad(windDirectionToCardinal);
   let headingRadians = degToRad(heading);
@@ -142,19 +172,21 @@ function calculateGroundSpeed(ktas: number, heading: number, windDirectionCardin
   let tasEast = ktas * Math.sin(headingRadians);
 
   let windNorth = windSpeed * Math.cos(windDirectionToRadians);
-  let windEast = windSpeed * Math.sin(windDirectionToRadians);  
+  let windEast = windSpeed * Math.sin(windDirectionToRadians);
 
   let groundSpeedNorth = tasNorth + windNorth;
   let groundSpeedEast = tasEast + windEast;
 
-  let groundSpeed = Math.sqrt(Math.pow(groundSpeedNorth, 2) + Math.pow(groundSpeedEast, 2));
+  let groundSpeed = Math.sqrt(
+    Math.pow(groundSpeedNorth, 2) + Math.pow(groundSpeedEast, 2)
+  );
 
   return Math.round(groundSpeed);
 }
 
 /**
  * Calculate the vertical speed from the ground speed and the gamma angle.
- *  
+ *
  * @param groundSpeed - The ground speed in knots
  * @param gamma - The gamma angle in degrees
  * @returns The vertical speed in feet per minute
@@ -163,7 +195,57 @@ function calculateVerticalSpeed(groundSpeed: number, gamma: number): number {
   return Math.round(groundSpeed * Math.tan(degToRad(gamma)) * 101.27);
 }
 
+/**
+ * Calculate the gravity at a given altitude.
+ *
+ * @param altitude - The altitude in feet
+ * @param units - The units of the gravity. Defaults to m/s^2.
+ * @returns The gravity at the given altitude in the specified units
+ */
+function calculateGravityAtAltitude(
+  altitude: number,
+  units: "m/s^2" | "km/s^2" = "m/s^2"
+): number {
+  let gravityAtSeaLevel = 9.80665; // m/s^2
+  let meanRadiusOfEarth = 6_378_100; // meters
+  let altitudeInMeters = feetToMeters(altitude);
+
+  let gravity =
+    gravityAtSeaLevel *
+    Math.pow(meanRadiusOfEarth / (meanRadiusOfEarth + altitudeInMeters), 2);
+
+  let convertedGravity = units === "m/s^2" ? gravity : gravity / 1000;
+
+  return convertedGravity;
+}
+
+/**
+ * Calculate the turn rate of the aircraft from the true airspeed, bank angle, and altitude.
+ *
+ * @param ktas - The true airspeed in knots
+ * @param bankAngle - The bank angle in degrees
+ * @param altitude - The altitude in feet
+ * @returns The turn rate in degrees per second
+ */
+function calculateTurnRate(
+  ktas: number,
+  bankAngle: number,
+  altitude: number
+): number {
+  let ktasInKmSec = ktas * 0.000514444;
+  let bankAngleInRadians = degToRad(bankAngle);
+
+  let turnRateInRadiansPerSec =
+    (calculateGravityAtAltitude(altitude, "km/s^2") *
+      Math.tan(bankAngleInRadians)) /
+    ktasInKmSec;
+
+  return radToDeg(turnRateInRadiansPerSec);
+}
+
 export {
+  feetToMeters,
+  metersToFeet,
   degToRad,
   polarToCartesian,
   normalizeHeading,
@@ -174,4 +256,6 @@ export {
   calculateWindCorrectedCourse,
   calculateGroundSpeed,
   calculateVerticalSpeed,
+  calculateGravityAtAltitude,
+  calculateTurnRate,
 };
