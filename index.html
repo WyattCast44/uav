@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three.js</title>
+    <link href="/src/app.css" rel="stylesheet">
+  </head>
+  <body>
+    <div class="h-screen w-screen overflow-hidden bg-black text-white antialiased">
+      <div
+        class="w-full h-full p-2 flex items-center justify-center space-y-2 flex-col"
+      >
+        <div class="flex lg:space-x-2 flex-1 w-full h-full overflow-hidden">
+          <div
+            id="hud"
+            class="flex-1 border border-gray-500 flex items-center justify-center relative w-full h-full"
+          >
+            <canvas id="hud-canvas" class="absolute inset-0 flex items-center justify-center w-full h-full">
+              HUD
+            </canvas>
+          </div>
+          <div
+            id="map"
+            class="flex-1 border border-gray-500 items-center justify-center hidden lg:flex w-full h-full"
+          >
+            Map
+          </div>
+        </div>
+        <div
+          id="controls"
+          class="w-full h-1/2 border border-gray-500 flex items-center justify-center"
+        >
+          Controls
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

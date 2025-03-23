@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+canvas {
+    font-family: monospace;
+}
