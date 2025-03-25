@@ -40,7 +40,7 @@ function radToDeg(rad: number): number {
 
 /**
  * Rotates a point around a center point by a given angle
- * 
+ *
  * @param point - The point to rotate
  * @param center - The center point
  * @param angle - The angle to rotate the point by
@@ -128,6 +128,13 @@ function calculateKTAS(keas: number, altitude: number): number {
   return Math.round(keas * Math.sqrt(1.225 / calculateDensity(altitude)));
 }
 
+/**
+ * Calculate the mach number from the true airspeed and altitude.
+ *
+ * @param keas - The true airspeed in knots
+ * @param altitude - The altitude in feet
+ * @returns The mach number
+ */
 function calculateMachNumber(keas: number, altitude: number): number {
   return (
     calculateKTAS(keas, altitude) /
@@ -135,6 +142,12 @@ function calculateMachNumber(keas: number, altitude: number): number {
   );
 }
 
+/**
+ * Calculate the g-force at a given bank angle.
+ *
+ * @param bankAngle - The bank angle in degrees
+ * @returns The g-force
+ */
 function calculateGsAtBankAngle(bankAngle: number): number {
   return 1 / Math.cos(degToRad(Math.abs(bankAngle)));
 }
@@ -269,6 +282,36 @@ function calculateTurnRate(
   return radToDeg(turnRateInRadiansPerSec);
 }
 
+/**
+ * Calculate the turn radius of the aircraft from the true airspeed, bank angle, and altitude.
+ *
+ * @param ktas - The true airspeed in knots
+ * @param bankAngle - The bank angle in degrees
+ * @param altitude - The altitude in feet
+ * @returns The turn radius in kilometers (TODO: Convert to ?)
+ */
+function calculateTurnRadius(
+  ktas: number,
+  bankAngle: number,
+  altitude: number,
+  units: "km" | "m" = "km"
+): number {
+  let ktasKmSec = ktas * 0.000514444;
+
+  bankAngle = Math.abs(bankAngle);
+
+  if (bankAngle == 0) {
+    return 100000;
+  }
+
+  let turnRadiusKm =
+    Math.pow(ktasKmSec, 2) /
+    (calculateGravityAtAltitude(altitude, "km/s^2") *
+      Math.tan(degToRad(bankAngle)));
+
+  return units === "km" ? turnRadiusKm : turnRadiusKm * 1000;
+}
+
 export {
   feetToMeters,
   metersToFeet,
@@ -285,4 +328,5 @@ export {
   calculateVerticalSpeed,
   calculateGravityAtAltitude,
   calculateTurnRate,
+  calculateTurnRadius,
 };

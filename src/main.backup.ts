@@ -9,6 +9,7 @@ import {
   calculateWindCorrectedCourse,
   calculateVerticalSpeed,
   calculateTurnRate,
+  rotatePoint,
 } from "./math";
 
 type Wind = {
@@ -19,7 +20,7 @@ type Wind = {
 type TSPI = {
   time: Date;
   position: {
-    x: number;  
+    x: number;
     y: number;
     z: number;
   };
@@ -58,17 +59,6 @@ enum GearPosition {
   TRANSIT = "transit",
 }
 
-// type HudState = {
-//   dpr: number;
-//   canvasDisplayWidth: number;
-//   canvasDisplayHeight: number;
-//   canvasWidth: number;
-//   canvasHeight: number;
-//   canvasElement: HTMLCanvasElement;
-//   canvasContainerElement: HTMLDivElement;
-//   canvasContainerAspectRatio: number;
-// };
-
 type UAVState = {
   tailNumber: string;
   airspeed: number;
@@ -92,16 +82,93 @@ type UAVState = {
   turnRateDegPerSec: number;
 };
 
-const wind: Wind = {
-  directionCardinal: 270,
-  speed: 30,
+const CONFIG = {
+  DISPLAY: {
+    HUD: {
+      COLORS: {
+        MANUAL: "green",
+        AUTOPILOT: "cyan",
+        AUTO: "hotpink",
+        TEXT: "black",
+        TEXT_BRIGHT: "white",
+      },
+      FONTS: {
+        PRIMARY: "22px monospace",
+        SECONDARY: "16px monospace",
+        SMALL: "10px monospace",
+      },
+    },
+  },
+  FLIGHT: {
+    ROLL_RATE_DEG_PER_SEC: 10,
+    ROLL_RATE_COMPENSATION: 0.6,
+    DEFAULT_ALTITUDE: 10_000,
+    DEFAULT_AIRSPEED: 120,
+    DEFAULT_HEADING: 360,
+    BANK_ANGLE_LIMITS: {
+      MIN: -45,
+      MAX: 45,
+    },
+    PITCH_LADDER: {
+      GEAR_UP: [
+        -45, -40, -35, -30, -25, -20, -15, -10, -5, 5, 10, 15, 20, 25, 30, 35,
+        40, 45,
+      ],
+      GEAR_DOWN: [
+        -45, -40, -35, -30, -25, -20, -15, -10, -5, -2.5, 2.5, 5, 10, 15, 20,
+        25, 30, 35, 40, 45,
+      ],
+    },
+  },
+  CAMERA: {
+    FOV: 75,
+    NEAR: 0.1,
+    FAR: 100000,
+    LOOK_AHEAD_DISTANCE_MULTIPLIER: 2, // multiplied by altitude
+  },
+  ENVIRONMENT: {
+    WIND: {
+      DEFAULT_DIRECTION: 270,
+      DEFAULT_SPEED: 30,
+    },
+    GROUND: {
+      SIZE: 100000,
+      GRID_DIVISIONS: 100,
+      COLOR: "burlywood",
+    },
+    LIGHTING: {
+      AMBIENT_INTENSITY: 0.5,
+      SUN_INTENSITY: 1,
+      SUN_POSITION: {
+        x: 500,
+        y: 800,
+        z: -500,
+      },
+    },
+  },
+  HUD_ELEMENTS: {
+    BANK_INDICATOR: {
+      RADIUS: 150,
+      Y_OFFSET: 250,
+      ANGLES: [-45, -30, -20, -10, 0, 10, 20, 30, 45],
+    },
+    HEADING_STRIP: {
+      WIDTH: 275,
+      HEIGHT: 8,
+      Y_POSITION: 35,
+    },
+    FLIGHT_PATH_MARKER: {
+      RADIUS: 8,
+      LINE_LENGTH: 15,
+    },
+  },
 };
 
 const uavState: UAVState = {
   tailNumber: "505",
-  airspeed: 120,
-  altitude: 5000,
-  heading: 360,
+  airspeed: CONFIG.FLIGHT.DEFAULT_AIRSPEED,
+  altitude: CONFIG.FLIGHT.DEFAULT_ALTITUDE,
+  heading: CONFIG.FLIGHT.DEFAULT_HEADING,
   course: undefined,
   mode: ControlMode.MANUAL,
   ktas: undefined,
@@ -114,31 +181,67 @@ const uavState: UAVState = {
   gamma: 0,
   commandedGamma: 0,
   verticalSpeed: 0,
-  position: new THREE.Vector3(0, 5000, 0),
-  rollRateDegPerSec: 10,
-  compensatedRollRate: 10 * .6,
+  position: new THREE.Vector3(0, CONFIG.FLIGHT.DEFAULT_ALTITUDE, 0),
+  rollRateDegPerSec: CONFIG.FLIGHT.ROLL_RATE_DEG_PER_SEC,
+  compensatedRollRate:
+    CONFIG.FLIGHT.ROLL_RATE_DEG_PER_SEC * CONFIG.FLIGHT.ROLL_RATE_COMPENSATION,
   turnRateDegPerSec: 0,
 };
 
-uavState.ktas = calculateKTAS(uavState.airspeed, uavState.altitude);
-uavState.mach = calculateMachNumber(uavState.airspeed, uavState.altitude);
-uavState.gForce = calculateGsAtBankAngle(uavState.bank);
-uavState.course = calculateWindCorrectedCourse(
-  uavState.ktas,
-  uavState.heading,
-  wind.directionCardinal,
-  wind.speed
-);
-uavState.groundSpeed = calculateGroundSpeed(
-  uavState.ktas,
-  uavState.heading,
-  wind.directionCardinal,
-  wind.speed
-);
-uavState.verticalSpeed = calculateVerticalSpeed(
-  uavState.groundSpeed,
-  uavState.gamma
-);
+const wind: Wind = {
+  directionCardinal: CONFIG.ENVIRONMENT.WIND.DEFAULT_DIRECTION,
+  speed: CONFIG.ENVIRONMENT.WIND.DEFAULT_SPEED,
+};
+
+function updateUAVState() {
+  simulation.uavState.ktas = calculateKTAS(
+    simulation.uavState.airspeed,
+    simulation.uavState.altitude
+  );
+
+  simulation.uavState.mach = calculateMachNumber(
+    simulation.uavState.airspeed,
+    simulation.uavState.altitude
+  );
+
+  simulation.uavState.gForce = calculateGsAtBankAngle(simulation.uavState.bank);
+
+  simulation.uavState.course = calculateWindCorrectedCourse(
+    simulation.uavState.ktas,
+    simulation.uavState.heading,
+    simulation.wind.directionCardinal,
+    simulation.wind.speed
+  );
+
+  simulation.uavState.turnRateDegPerSec = calculateTurnRate(
+    simulation.uavState.ktas,
+    simulation.uavState.bank,
+    simulation.uavState.altitude
+  );
+
+  simulation.uavState.groundSpeed = calculateGroundSpeed(
+    simulation.uavState.ktas,
+    simulation.uavState.heading,
+    simulation.wind.directionCardinal,
+    simulation.wind.speed
+  );
+
+  simulation.uavState.verticalSpeed = calculateVerticalSpeed(
+    simulation.uavState.groundSpeed,
+    simulation.uavState.gamma
+  );
+
+  // calculate the altitude change based on vertical speed
+  simulation.uavState.altitude += simulation.uavState.verticalSpeed * 0.01;
+
+  // calculate the new heading based on the bank angle
+  simulation.uavState.heading = normalizeHeading(
+    simulation.uavState.heading + simulation.uavState.turnRateDegPerSec * 0.01
+  );
+
+  // update the position of the uav
+  simulation.uavState.position.y = simulation.uavState.altitude;
+}
 
 const simulation: Simulation = {
   wasStarted: false,
@@ -156,40 +259,17 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// Helper function to rotate a point around a center point
-function rotatePoint(
-  point: { x: number; y: number },
-  center: { x: number; y: number },
-  angle: number
-) {
-  const radians = (angle * Math.PI) / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-
-  const dx = point.x - center.x;
-  const dy = point.y - center.y;
-
-  return {
-    x: center.x + (dx * cos - dy * sin),
-    y: center.y + (dx * sin + dy * cos),
-  };
-}
-
 function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
-  let graphicsColor: string = "green";
+  let graphicsColor = CONFIG.DISPLAY.HUD.COLORS.MANUAL;
+  let textColor = CONFIG.DISPLAY.HUD.COLORS.TEXT;
 
-  if (simulation.uavState.mode === ControlMode.MANUAL) {
-    graphicsColor = "green";
-  }
-
-  let textColor: string = "black";
-
-  if (simulation.uavState.mode === ControlMode.AUTOPILOT) {
-    graphicsColor = "cyan";
-  }
-
-  if (simulation.uavState.mode === ControlMode.AUTO) {
-    graphicsColor = "hotpink";
+  switch (simulation.uavState.mode) {
+    case ControlMode.AUTOPILOT:
+      graphicsColor = CONFIG.DISPLAY.HUD.COLORS.AUTOPILOT;
+      break;
+    case ControlMode.AUTO:
+      graphicsColor = CONFIG.DISPLAY.HUD.COLORS.AUTO;
+      break;
   }
 
   const ctx = canvas.getContext("2d");
@@ -221,7 +301,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
    */
   let airspeedX = displayWidth / 6;
   let airspeedY = displayHeight / 2;
-  ctx.font = "22px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.PRIMARY;
   ctx.fillStyle = textColor;
   ctx.textAlign = "center";
   ctx.fillText(simulation.uavState.airspeed.toFixed(0), airspeedX, airspeedY);
@@ -245,7 +325,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
    */
   let altitudeX = (displayWidth / 6) * 5;
   let altitudeY = displayHeight / 2;
-  ctx.font = "22px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.PRIMARY;
   ctx.fillStyle = textColor;
   ctx.textAlign = "center";
   ctx.fillText(simulation.uavState.altitude.toFixed(0), altitudeX, altitudeY);
@@ -267,7 +347,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
    */
   let verticalSpeedX = (displayWidth / 6) * 5;
   let verticalSpeedY = altitudeY + 40;
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = graphicsColor;
   ctx.textAlign = "center";
   ctx.fillText(
@@ -303,7 +383,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
     boxHeight
   );
 
-  ctx.font = "22px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.PRIMARY;
   ctx.fillStyle = textColor;
   ctx.strokeStyle = textColor;
   ctx.textAlign = "center";
@@ -317,7 +397,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   let groundSpeedX = displayWidth / 6;
   let groundSpeedY = airspeedY + 40;
 
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = "white";
   ctx.textAlign = "left";
   if (simulation.uavState.groundSpeed) {
@@ -338,7 +418,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   let machY = groundSpeedY + 20;
 
   // now lets draw the mach
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = "white";
   ctx.textAlign = "left";
   if (simulation.uavState.mach) {
@@ -354,7 +434,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   let gForceX = displayWidth / 6;
   let gForceY = machY + 20;
 
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = "white";
   ctx.textAlign = "left";
   ctx.fillStyle = graphicsColor;
@@ -366,10 +446,10 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   |--------------------------------
   */
   let bankX = displayWidth / 2;
-  let bankY = displayHeight - 250;
-  let bankRadius = 150;
+  let bankY = displayHeight - CONFIG.HUD_ELEMENTS.BANK_INDICATOR.Y_OFFSET;
+  let bankRadius = CONFIG.HUD_ELEMENTS.BANK_INDICATOR.RADIUS;
 
-  let angles = [-45, -30, -20, -10, 0, 10, 20, 30, 45];
+  let angles = CONFIG.HUD_ELEMENTS.BANK_INDICATOR.ANGLES;
 
   let ticks = [];
 
@@ -456,15 +536,8 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   let horizonLadderLineWidth = 225;
   let ladderCenterGapWidth = 75;
 
-  let gearUpLadders = [
-    -45, -40, -35, -30, -25, -20, -15, -10, -5, 5, 10, 15, 20, 25, 30, 35, 40,
-    45,
-  ];
-
-  let gearDownLadders = [
-    -45, -40, -35, -30, -25, -20, -15, -10, -5, -2.5, 2.5, 5, 10, 15, 20, 25,
-    30, 35, 40, 45,
-  ];
+  let gearUpLadders = CONFIG.FLIGHT.PITCH_LADDER.GEAR_UP;
+  let gearDownLadders = CONFIG.FLIGHT.PITCH_LADDER.GEAR_DOWN;
 
   // we need to determine the vertical spacing of the ladders
   let ladders =
@@ -659,13 +732,13 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   |--------------------------------
   */
   let headingX = displayWidth / 2;
-  let headingY = 35;
+  let headingY = CONFIG.HUD_ELEMENTS.HEADING_STRIP.Y_POSITION;
 
   // now lets actually draw the heading strip
   let headingStripX = headingX;
   let headingStripY = headingY + 20;
-  let headingStripWidth = 275;
-  let headingStripHeight = 8;
+  let headingStripWidth = CONFIG.HUD_ELEMENTS.HEADING_STRIP.WIDTH;
+  let headingStripHeight = CONFIG.HUD_ELEMENTS.HEADING_STRIP.HEIGHT;
   let tickSpacing = headingStripWidth / 60;
   let minorTickHeight = headingStripHeight / 2;
   let majorTickHeight = headingStripHeight;
@@ -750,7 +823,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   // now lets draw the labels
   for (let label of labels) {
     ctx.fillStyle = textColor;
-    ctx.font = "10px monospace";
+    ctx.font = CONFIG.DISPLAY.HUD.FONTS.SMALL;
     ctx.fillText(label.text, label.x + headingStripX, label.y - 14);
   }
 
@@ -771,8 +844,8 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
     boxHeight
   );
 
-  ctx.font = "22px monospace";
-  ctx.fillStyle = "white";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.PRIMARY;
+  ctx.fillStyle = CONFIG.DISPLAY.HUD.COLORS.TEXT_BRIGHT;
   ctx.textAlign = "center";
   ctx.fillText(
     simulation.uavState.heading.toFixed(0).padStart(3, "0"),
@@ -788,8 +861,9 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
   // Use screenCenter.x to keep it centered horizontally
   let flightPathMarkerX = screenCenter.x;
   let flightPathMarkerY = screenCenter.y;
-  let flightPathMarkerRadius = 8;
-  let flightPathMarkerLineLength = 15;
+  let flightPathMarkerRadius = CONFIG.HUD_ELEMENTS.FLIGHT_PATH_MARKER.RADIUS;
+  let flightPathMarkerLineLength =
+    CONFIG.HUD_ELEMENTS.FLIGHT_PATH_MARKER.LINE_LENGTH;
 
   // move the flight path marker vertically based on gamma
   flightPathMarkerY =
@@ -903,7 +977,7 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
 
   let clockString = `${clockHours}:${clockMinutes}:${clockSeconds}`;
 
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = graphicsColor;
   ctx.textAlign = "center";
   ctx.fillText(clockString, clockX, clockY);
@@ -929,14 +1003,14 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
 
   let simulationTimeString = `${simulationHours}:${simulationMinutes}:${simulationSeconds}`;
 
-  ctx.font = "16px monospace";
+  ctx.font = CONFIG.DISPLAY.HUD.FONTS.SECONDARY;
   ctx.fillStyle = graphicsColor;
   ctx.textAlign = "center";
   ctx.fillText(simulationTimeString, simulationTimeX, simulationTimeY);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // get the hud container
+
   let hudContainer = document.getElementById("hud");
   let hudCanvas = document.getElementById("hud-canvas");
 
@@ -944,20 +1018,8 @@ document.addEventListener("DOMContentLoaded", () => {
     throw new Error("HUD container or canvas not found");
   }
 
-  // let hudState: HudState = {
-  //   dpr: window.devicePixelRatio || 1,
-  //   canvasDisplayWidth: hudCanvas.clientWidth,
-  //   canvasDisplayHeight: hudCanvas.clientHeight,
-  //   canvasWidth: hudCanvas.clientWidth * window.devicePixelRatio || 1,
-  //   canvasHeight: hudCanvas.clientHeight * window.devicePixelRatio || 1,
-  //   canvasElement: hudCanvas as HTMLCanvasElement,
-  //   canvasContainerElement: hudContainer as HTMLDivElement,
-  //   canvasContainerAspectRatio:
-  //     hudContainer.clientWidth / hudContainer.clientHeight,
-  // };
-
   let scene: THREE.Scene;
-  let cameraFOV = 75;
+  let cameraFOV = CONFIG.CAMERA.FOV;
   let camera: THREE.PerspectiveCamera;
   let renderer: THREE.WebGLRenderer;
 
@@ -966,8 +1028,8 @@ document.addEventListener("DOMContentLoaded", () => {
   camera = new THREE.PerspectiveCamera(
     cameraFOV,
     hudContainer.clientWidth / hudContainer.clientHeight,
-    0.1,
-    100_000
+    CONFIG.CAMERA.NEAR,
+    CONFIG.CAMERA.FAR
   );
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(hudContainer.clientWidth, hudContainer.clientHeight);
@@ -1003,9 +1065,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createGround() {
-    const groundGeometry = new THREE.PlaneGeometry(100000, 100000);
+    const groundGeometry = new THREE.PlaneGeometry(
+      CONFIG.ENVIRONMENT.GROUND.SIZE,
+      CONFIG.ENVIRONMENT.GROUND.SIZE
+    );
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: "burlywood",
+      color: CONFIG.ENVIRONMENT.GROUND.COLOR,
       roughness: 0.8,
       metalness: 0.2,
     });
@@ -1016,34 +1081,32 @@ document.addEventListener("DOMContentLoaded", () => {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Add a grid for reference
-    const gridHelper = new THREE.GridHelper(100_000, 100);
+    const gridHelper = new THREE.GridHelper(
+      CONFIG.ENVIRONMENT.GROUND.SIZE,
+      CONFIG.ENVIRONMENT.GROUND.GRID_DIVISIONS
+    );
     gridHelper.position.y = 0.1;
     scene.add(gridHelper);
   }
 
   // Create basic lighting
   function createLighting() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(
+      0xffffff,
+      CONFIG.ENVIRONMENT.LIGHTING.AMBIENT_INTENSITY
+    );
     scene.add(ambientLight);
 
-    // Directional light (sun)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
-    sunLight.position.set(500, 800, -500);
+    const sunLight = new THREE.DirectionalLight(
+      0xffffff,
+      CONFIG.ENVIRONMENT.LIGHTING.SUN_INTENSITY
+    );
+    sunLight.position.set(
+      CONFIG.ENVIRONMENT.LIGHTING.SUN_POSITION.x,
+      CONFIG.ENVIRONMENT.LIGHTING.SUN_POSITION.y,
+      CONFIG.ENVIRONMENT.LIGHTING.SUN_POSITION.z
+    );
     sunLight.castShadow = true;
-
-    // Configure shadow
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    const d = 1000;
-    sunLight.shadow.camera.left = -d;
-    sunLight.shadow.camera.right = d;
-    sunLight.shadow.camera.top = d;
-    sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.camera.near = 1;
-    sunLight.shadow.camera.far = 2000;
-
     scene.add(sunLight);
   }
 
@@ -1051,56 +1114,6 @@ document.addEventListener("DOMContentLoaded", () => {
   createLighting();
 
   renderer.setAnimationLoop(animate);
-
-  function updateUAVState() {
-    simulation.uavState.ktas = calculateKTAS(
-      simulation.uavState.airspeed,
-      simulation.uavState.altitude
-    );
-
-    simulation.uavState.mach = calculateMachNumber(
-      simulation.uavState.airspeed,
-      simulation.uavState.altitude
-    );
-
-    simulation.uavState.gForce = calculateGsAtBankAngle(
-      simulation.uavState.bank
-    );
-
-    simulation.uavState.course = calculateWindCorrectedCourse(
-      simulation.uavState.ktas,
-      simulation.uavState.heading,
-      simulation.wind.directionCardinal,
-      simulation.wind.speed
-    );
-
-    simulation.uavState.turnRateDegPerSec = calculateTurnRate(
-      simulation.uavState.ktas,
-      simulation.uavState.bank,
-      simulation.uavState.altitude
-    );
-
-    simulation.uavState.groundSpeed = calculateGroundSpeed(
-      simulation.uavState.ktas,
-      simulation.uavState.heading,
-      simulation.wind.directionCardinal,
-      simulation.wind.speed
-    );
-
-    simulation.uavState.verticalSpeed = calculateVerticalSpeed(
-      simulation.uavState.groundSpeed,
-      simulation.uavState.gamma
-    );
-
-    // calculate the altitude change based on vertical speed
-    simulation.uavState.altitude += simulation.uavState.verticalSpeed * 0.01;
-
-    // calculate the new heading based on the bank angle
-    simulation.uavState.heading = normalizeHeading(simulation.uavState.heading + simulation.uavState.turnRateDegPerSec * 0.01);
-
-    // update the position of the uav
-    simulation.uavState.position.y = simulation.uavState.altitude;
-  }
 
   function updateCamera(uavState: UAVState) {
     // Set camera position to UAV position
@@ -1111,37 +1124,44 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     // Calculate a point ahead of the aircraft at the current heading
-    const lookAheadDistance = Math.max(2000, uavState.altitude * 2);
-    
+    const lookAheadDistance = Math.max(
+      2000,
+      uavState.altitude * CONFIG.CAMERA.LOOK_AHEAD_DISTANCE_MULTIPLIER
+    );
+
     // First calculate the point at the horizon (level with aircraft)
     const horizonPoint = new THREE.Vector3(
-      uavState.position.x + lookAheadDistance * Math.cos(uavState.heading * Math.PI / 180),
+      uavState.position.x +
+        lookAheadDistance * Math.cos((uavState.heading * Math.PI) / 180),
       uavState.position.y, // Same height as aircraft
-      uavState.position.z + lookAheadDistance * Math.sin(uavState.heading * Math.PI / 180)
+      uavState.position.z +
+        lookAheadDistance * Math.sin((uavState.heading * Math.PI) / 180)
     );
 
     // Now rotate this point up/down based on gamma (pitch)
     // We'll rotate around the aircraft's position
-    const pitchRadians = -uavState.gamma * Math.PI / 180; // Negative because positive gamma should look up
-    
+    const pitchRadians = (-uavState.gamma * Math.PI) / 180; // Negative because positive gamma should look up
+
     // Create a vector from aircraft to horizon point
     const lookVector = horizonPoint.clone().sub(camera.position);
-    
+
     // Create rotation axis (perpendicular to look direction and up vector)
     const rotationAxis = new THREE.Vector3();
-    rotationAxis.crossVectors(lookVector, new THREE.Vector3(0, 1, 0)).normalize();
-    
+    rotationAxis
+      .crossVectors(lookVector, new THREE.Vector3(0, 1, 0))
+      .normalize();
+
     // Apply the rotation to the look vector
     lookVector.applyAxisAngle(rotationAxis, pitchRadians);
-    
+
     // Add the rotated vector back to camera position to get final look target
     const targetPoint = camera.position.clone().add(lookVector);
-    
+
     // Point camera at the calculated target
     camera.lookAt(targetPoint);
 
     // Apply bank rotation
-    const bankRadians = uavState.bank * Math.PI / 180;
+    const bankRadians = (uavState.bank * Math.PI) / 180;
     camera.rotateZ(bankRadians);
   }
 
@@ -1182,18 +1202,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     simulation.uavTSPI.push(currentTSPI);
 
-    // update the mode to random
+    // update the uav state with random values if the random number is greater than 0.9
     if (Math.random() > 0.9) {
-
       simulation.uavState.airspeed += Math.random() > 0.5 ? 1 : -1;
-      // simulation.uavState.heading = normalizeHeading(
-      //   simulation.uavState.heading + (Math.random() > 0.5 ? 1 : -1)
-      // );
       simulation.uavState.commandedBank += Math.random() > 0.5 ? 1 : -1;
-      // use the commanded bank to calculate the bank
       simulation.uavState.bank = simulation.uavState.commandedBank;
-
-      // update the gamma
       simulation.uavState.commandedGamma += Math.random() > 0.5 ? 0.1 : -0.1;
       simulation.uavState.gamma = simulation.uavState.commandedGamma;
     }

@@ -10,7 +10,9 @@ import {
   calculateVerticalSpeed,
   calculateTurnRate,
   rotatePoint,
+  calculateTurnRadius,
 } from "./math";
+import { degToRad } from "three/src/math/MathUtils.js";
 
 type Wind = {
   directionCardinal: number;
@@ -102,7 +104,7 @@ const CONFIG = {
   FLIGHT: {
     ROLL_RATE_DEG_PER_SEC: 10,
     ROLL_RATE_COMPENSATION: 0.6,
-    DEFAULT_ALTITUDE: 10_000,
+    DEFAULT_ALTITUDE: 300,
     DEFAULT_AIRSPEED: 120,
     DEFAULT_HEADING: 360,
     BANK_ANGLE_LIMITS: {
@@ -119,6 +121,12 @@ const CONFIG = {
         25, 30, 35, 40, 45,
       ],
     },
+    CONTROL_MODE: "KEYBOARD",
+    KEYBOARD_CONTROLS: {
+      BANK_RATE: 1,
+      GAMMA_RATE: 0.1,
+      SPEED_RATE: 1,
+    },
   },
   CAMERA: {
     FOV: 75,
@@ -129,7 +137,7 @@ const CONFIG = {
   ENVIRONMENT: {
     WIND: {
       DEFAULT_DIRECTION: 270,
-      DEFAULT_SPEED: 30,
+      DEFAULT_SPEED: 70,
     },
     GROUND: {
       SIZE: 100000,
@@ -181,7 +189,7 @@ const uavState: UAVState = {
   gamma: 0,
   commandedGamma: 0,
   verticalSpeed: 0,
-  position: new THREE.Vector3(0, CONFIG.FLIGHT.DEFAULT_ALTITUDE, 0),
+  position: new THREE.Vector3(-1000, CONFIG.FLIGHT.DEFAULT_ALTITUDE, 0),
   rollRateDegPerSec: CONFIG.FLIGHT.ROLL_RATE_DEG_PER_SEC,
   compensatedRollRate:
     CONFIG.FLIGHT.ROLL_RATE_DEG_PER_SEC * CONFIG.FLIGHT.ROLL_RATE_COMPENSATION,
@@ -191,6 +199,15 @@ const uavState: UAVState = {
 const wind: Wind = {
   directionCardinal: CONFIG.ENVIRONMENT.WIND.DEFAULT_DIRECTION,
   speed: CONFIG.ENVIRONMENT.WIND.DEFAULT_SPEED,
+};
+
+const keyboardState = {
+  ArrowLeft: false,
+  ArrowRight: false,
+  ArrowUp: false,
+  ArrowDown: false,
+  KeyA: false,
+  KeyZ: false,
 };
 
 function updateUAVState() {
@@ -231,8 +248,17 @@ function updateUAVState() {
     simulation.uavState.gamma
   );
 
+  let turnRadiusKm = calculateTurnRadius(
+    simulation.uavState.ktas,
+    simulation.uavState.bank,
+    simulation.uavState.altitude,
+    "km"
+  );
+
   // calculate the altitude change based on vertical speed
-  simulation.uavState.altitude += simulation.uavState.verticalSpeed * 0.01;
+  // the vertical speed is in feet per minute, so we need to convert it to feet per second
+  let verticalSpeedInFeetPerSecond = simulation.uavState.verticalSpeed / 60;
+  simulation.uavState.altitude += verticalSpeedInFeetPerSecond * 0.01;
 
   // calculate the new heading based on the bank angle
   simulation.uavState.heading = normalizeHeading(
@@ -241,6 +267,72 @@ function updateUAVState() {
 
   // update the position of the uav
   simulation.uavState.position.y = simulation.uavState.altitude;
+
+  // updating the x, and z coordinates of the uav
+  // step 1. calculate the forward and lateral position change
+  // step 2. rotate the position change by the heading
+  // step 3. factor in changes to the position due to wind
+  // step 4. update the position of the uav state
+
+  let currentX = simulation.uavState.position.x;
+  let currentZ = simulation.uavState.position.z;
+
+  let groundSpeedKmSec = simulation.uavState.groundSpeed * 0.000514444;
+
+  let distanceTraveled = groundSpeedKmSec * 0.01;
+
+  let theta = distanceTraveled / turnRadiusKm;
+
+  // step 1: this is the the forward and lateral position change, no rotation, no wind
+  let xDelta = Math.cos(theta / 2) * 2 * turnRadiusKm * Math.sin(theta / 2);
+  let zDelta =
+    (simulation.uavState.bank < 0 ? -1 : 1) *
+    2 *
+    Math.sin(theta / 2) *
+    Math.sin(theta / 2);
+
+  // step 2: rotate the position change by the heading
+  let headingCardinal = simulation.uavState.heading;
+  let headingMath = 450 - headingCardinal;
+  if (headingMath >= 360) headingMath -= 360;
+  let headingMathRadians = degToRad(headingMath);
+
+  let xPrime =
+    xDelta * Math.cos(headingMathRadians) -
+    zDelta * Math.sin(headingMathRadians);
+  let zPrime =
+    xDelta * Math.sin(headingMathRadians) +
+    zDelta * Math.cos(headingMathRadians);
+
+  // step 3: factor in changes to the position due to wind
+  let windDirectionCardinal = simulation.wind.directionCardinal;
+  let windDirectionMathToDeg = 180 + 90 - windDirectionCardinal;
+  let windDirectionMathToRadians = degToRad(windDirectionMathToDeg);
+
+  let windVelocityKnots = simulation.wind.speed;
+  let windVelocityKmSec = windVelocityKnots * 0.514444;
+
+  let windXComponent = windVelocityKmSec * Math.cos(windDirectionMathToRadians);
+  let windZComponent = windVelocityKmSec * Math.sin(windDirectionMathToRadians);
+
+  let windDistX = windXComponent * 0.01;
+  let windDistZ = windZComponent * 0.01;
+
+  let newXPosition = currentX + xPrime + windDistX;
+  let newZPosition = currentZ + zPrime + windDistZ;
+
+  console.table({
+    currentX,
+    currentZ,
+    newXPosition,
+    newZPosition,
+    xDiff: newXPosition - currentX,
+    zDiff: newZPosition - currentZ,
+  });
+
+  // step 4: update the position of the uav state
+  simulation.uavState.position.x = newXPosition;
+  simulation.uavState.position.z = newZPosition;
 }
 
 const simulation: Simulation = {
@@ -253,9 +345,18 @@ const simulation: Simulation = {
 };
 
 document.addEventListener("keydown", (event) => {
+  if (event.code in keyboardState) {
+    keyboardState[event.code as keyof typeof keyboardState] = true;
+  }
   if (event.key === " ") {
     simulation.playing = !simulation.playing;
     simulation.wasStarted = true;
+  }
+});
+
+document.addEventListener("keyup", (event) => {
+  if (event.code in keyboardState) {
+    keyboardState[event.code as keyof typeof keyboardState] = false;
   }
 });
 
@@ -1010,7 +1111,6 @@ function drawHudGraphics(canvas: HTMLCanvasElement, simulation: Simulation) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-
   let hudContainer = document.getElementById("hud");
   let hudCanvas = document.getElementById("hud-canvas");
 
@@ -1202,13 +1302,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
     simulation.uavTSPI.push(currentTSPI);
 
-    // update the uav state with random values if the random number is greater than 0.9
-    if (Math.random() > 0.9) {
-      simulation.uavState.airspeed += Math.random() > 0.5 ? 1 : -1;
-      simulation.uavState.commandedBank += Math.random() > 0.5 ? 1 : -1;
+    // Update UAV state based on control mode
+    if (CONFIG.FLIGHT.CONTROL_MODE === "KEYBOARD") {
+      // Handle bank control
+      if (keyboardState.ArrowLeft) {
+        simulation.uavState.commandedBank -=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.BANK_RATE;
+      }
+      if (keyboardState.ArrowRight) {
+        simulation.uavState.commandedBank +=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.BANK_RATE;
+      }
+
+      // Handle gamma control
+      if (keyboardState.ArrowUp) {
+        simulation.uavState.commandedGamma +=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.GAMMA_RATE;
+      }
+      if (keyboardState.ArrowDown) {
+        simulation.uavState.commandedGamma -=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.GAMMA_RATE;
+      }
+
+      // Handle airspeed control
+      if (keyboardState.KeyA) {
+        simulation.uavState.airspeed +=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.SPEED_RATE;
+      }
+      if (keyboardState.KeyZ) {
+        simulation.uavState.airspeed -=
+          CONFIG.FLIGHT.KEYBOARD_CONTROLS.SPEED_RATE;
+      }
+
+      // Update actual bank and gamma to follow commanded values
       simulation.uavState.bank = simulation.uavState.commandedBank;
-      simulation.uavState.commandedGamma += Math.random() > 0.5 ? 0.1 : -0.1;
       simulation.uavState.gamma = simulation.uavState.commandedGamma;
+    } else {
+      // Original random noise updates
+      if (Math.random() > 0.9) {
+        simulation.uavState.airspeed += Math.random() > 0.5 ? 1 : -1;
+        simulation.uavState.commandedBank += Math.random() > 0.5 ? 1 : -1;
+        simulation.uavState.bank = simulation.uavState.commandedBank;
+        simulation.uavState.commandedGamma += Math.random() > 0.5 ? 0.1 : -0.1;
+        simulation.uavState.gamma = simulation.uavState.commandedGamma;
+      }
     }
 
     // update the uav state
