@@ -269,12 +269,24 @@ class UAVDynamics {
   }
 }
 
+class UAVLimits {
+  maxBankAngle: number;
+  maxLoadFactor: number;
+
+  constructor(maxBankAngle: number, maxLoadFactor: number) {
+    this.maxBankAngle = maxBankAngle;
+    this.maxLoadFactor = maxLoadFactor;
+  }
+}
+
 class UAV {
   dynamics: UAVDynamics = new UAVDynamics(10, 1);
+  limits: UAVLimits = new UAVLimits(60, 8);
 }
 
 class MQ9 extends UAV {
   dynamics = new UAVDynamics(10, 0.6);
+  limits = new UAVLimits(45, 2.5);
 }
 
 class Temperature {
@@ -437,6 +449,29 @@ class UAVState {
    */
   experiencedGravity: Acceleration = Gravity.ftPerSecondSquaredAtSeaLevel;
 
+  /**
+   * The turn rate of the UAV. This is the rate at which the UAV is turning.
+   *
+   * Units: degrees per second
+   */
+  turnRate: number = 0;
+
+  /**
+   * The turn radius of the UAV. This is the radius of the circle that the UAV is turning.
+   *
+   * DOES NOT account for wind
+   *
+   * Units: feet
+   */
+  turnRadius: Feet = new Feet(0);
+
+  /**
+   * The vertical velocity of the UAV. This is the velocity of the UAV in the vertical direction.
+   *
+   * Units: feet per minute
+   */
+  verticalVelocity: number = 0;
+
   constructor(uav: UAV) {
     this.uav = uav;
   }
@@ -470,6 +505,9 @@ class UAVState {
     this.course = this.#calculateCourse(environment);
     this.loadFactor = this.#calculateLoadFactor();
     this.experiencedGravity = this.#calculateExperiencedGravity();
+    this.turnRate = this.#calculateTurnRate();
+    this.turnRadius = this.#calculateTurnRadius();
+    this.verticalVelocity = this.#calculateVerticalVelocity();
   }
 
   /**
@@ -579,11 +617,53 @@ class UAVState {
   #calculateExperiencedGravity(): Acceleration {
     return Gravity.estimateGravityAtAltitude(this.altitude).convertTo("ft/s^2");
   }
+
+  /**
+   * Calculate the turn rate of the UAV.
+   *
+   * @returns The turn rate of the UAV. Units are degrees per second.
+   */
+  #calculateTurnRate(): number {
+    let turnRateDegreesPerSecond = radToDeg(
+      (this.experiencedGravity.convertTo("m/s^2").value *
+        Math.tan(degToRad(this.bank))) /
+        this.ktas.metersPerSecond
+    );
+
+    return parseFloat(turnRateDegreesPerSecond.toFixed(2));
+  }
+
+  /**
+   * Calculate the turn radius of the UAV.
+   *
+   * @returns The turn radius of the UAV. Units are feet.
+   */
+  #calculateTurnRadius(): Feet {
+    let radius =
+      Math.pow(this.ktas.feetPerSecond, 2) /
+      (this.experiencedGravity.convertTo("ft/s^2").value *
+        Math.sqrt(Math.pow(this.loadFactor, 2) - 1));
+
+    return new Feet(parseFloat(radius.toFixed(4)));
+  }
+
+  /**
+   * Calculate the vertical velocity of the UAV.
+   *
+   * @returns The vertical velocity of the UAV. Units are feet per minute.
+   */
+  #calculateVerticalVelocity(): number {
+    let kgsFeetPerMinute = this.groundSpeed.feetPerSecond * 60;
+
+    let verticalVelocity = kgsFeetPerMinute * Math.sin(degToRad(this.gamma));
+
+    return parseFloat(verticalVelocity.toFixed(2));
+  }
 }
 
 // create the world
-let wraith = new MQ9();
-let wraithState = new UAVState(wraith);
+let reaper = new MQ9();
+let reaperState = new UAVState(reaper);
 let environment = new Environment();
 
 // init the environment
@@ -591,31 +671,20 @@ environment.setWind(new Wind(270, 30));
 environment.setSurfaceTemperature(new Temperature(80));
 
 // init the UAV
-wraithState.setIntialAttitude(
+reaperState.setIntialAttitude(
   new CardinalDirection(360),
   new Knots(120),
-  new Feet(10_000),
-  0,
+  new Feet(20_000),
+  -3,
   0
 );
 
-// update the performance values
-wraithState.updatePerformanceValues(environment);
+// init the performance values
+reaperState.updatePerformanceValues(environment);
 
-console.log(wraithState, environment);
+console.log(reaperState);
 
 // type UAVState = {
-//   uav: UAV;
-//   // Environment
-//   wind?: Wind;
-
-//   // Current Attitude - this will be the current attitude of the UAV
-//   // It will change based on the commanded attitude and the performance of the UAV
-//   heading?: number;
-//   keas?: number;
-//   altitude?: number;
-//   gamma?: number;
-//   bank?: number;
 
 //   // Commanded Attitude - will be set by the pilot or autopilot
 //   commandedHeading: number;
@@ -623,19 +692,6 @@ console.log(wraithState, environment);
 //   commandedAltitude: number;
 //   commandedGamma: number;
 //   commandedBank: number;
-
-//   // Performance
-//   ktas?: number; // is derived from keas and altitude. Will be in knots.
-//   mach?: number; // is derived from keas and altitude. Will be unitless.
-//   groundSpeed?: number; // is derived from ktas, heading, and wind. Will be in knots.
-//   course?: number; // is derived from heading and wind. Will be in degrees cardinal.
-//   loadFactor?: number; // is derived from bank in RADIANS. Will be unitless. loadFactor = 1 / cos(radians(bank)). A.ka. "g-force"
-//   gravity?: number; // is derived from altitude. Will be in ft/s^2. This is the gravity at the current altitude.
-
-//   groundRelativeVerticalSpeed?: number; // is derived from gamma and groundSpeed. Will be in feet per minute.
-//   airRelativeVerticalSpeed?: number; // is derived from gamma and ktas. Will be in feet per minute.
-//   turnRate?: number; // is derived from keas and bank. Will be in degrees per second.
-//   turnRadius?: number; // is derived from ktas, loadFactor, and gravity. Will be in feet. R = ktas^2 / (g * sqrt(loadFactor^2 - 1))
 
 //   // Position
 //   position?: {
