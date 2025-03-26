@@ -1,11 +1,4 @@
-function degToRad(deg: number): number {
-  return deg * (Math.PI / 180);
-}
-
-function radToDeg(rad: number): number {
-  return rad * (180 / Math.PI);
-}
-
+import { degToRad, radToDeg } from "./math";
 class Knots {
   value: number;
 
@@ -27,27 +20,6 @@ class Knots {
 
   get kilometersPerSecond(): number {
     return this.value * 0.000514444444;
-  }
-}
-
-class CardinalDirection {
-  value: number;
-
-  /**
-   * The value of the cardinal direction in degrees.
-   *
-   * Units: degrees
-   */
-  constructor(value: number) {
-    this.value = value < 0 ? 0 : value % 360;
-  }
-
-  get degrees(): number {
-    return this.value;
-  }
-
-  get radians(): number {
-    return degToRad(this.value);
   }
 }
 
@@ -126,6 +98,27 @@ class Acceleration {
     } else {
       return new Acceleration(this.ftPerSecondSquared * 0.3048, "m/s^2");
     }
+  }
+}
+
+class CardinalDirection {
+  value: number;
+
+  /**
+   * The value of the cardinal direction in degrees.
+   *
+   * Units: degrees
+   */
+  constructor(value: number) {
+    this.value = value < 0 ? 0 : value % 360;
+  }
+
+  get degrees(): number {
+    return this.value;
+  }
+
+  get radians(): number {
+    return degToRad(this.value);
   }
 }
 
@@ -255,40 +248,6 @@ class Wind {
   }
 }
 
-class UAVDynamics {
-  rollRate: number;
-  rollRateCompensator: number;
-
-  constructor(rollRate: number, rollRateCompensator: number) {
-    this.rollRate = rollRate;
-    this.rollRateCompensator = rollRateCompensator;
-  }
-
-  get effectiveRollRate(): number {
-    return this.rollRate * this.rollRateCompensator;
-  }
-}
-
-class UAVLimits {
-  maxBankAngle: number;
-  maxLoadFactor: number;
-
-  constructor(maxBankAngle: number, maxLoadFactor: number) {
-    this.maxBankAngle = maxBankAngle;
-    this.maxLoadFactor = maxLoadFactor;
-  }
-}
-
-class UAV {
-  dynamics: UAVDynamics = new UAVDynamics(10, 1);
-  limits: UAVLimits = new UAVLimits(60, 8);
-}
-
-class MQ9 extends UAV {
-  dynamics = new UAVDynamics(10, 0.6);
-  limits = new UAVLimits(45, 2.5);
-}
-
 class Temperature {
   temperature: number;
 
@@ -347,6 +306,46 @@ class Environment {
       -3.39 * Math.pow(10, -5) * altitude.feet +
       2.8 * Math.pow(10, -10) * Math.pow(altitude.feet, 2)
     );
+  }
+}
+
+class UAVDynamics {
+  rollRate: number;
+  rollRateCompensator: number;
+
+  constructor(rollRate: number, rollRateCompensator: number) {
+    this.rollRate = rollRate;
+    this.rollRateCompensator = rollRateCompensator;
+  }
+
+  get effectiveRollRate(): number {
+    return this.rollRate * this.rollRateCompensator;
+  }
+}
+
+class UAVLimits {
+  maxBankAngle: number;
+  maxLoadFactor: number;
+
+  constructor(maxBankAngle: number, maxLoadFactor: number) {
+    this.maxBankAngle = maxBankAngle;
+    this.maxLoadFactor = maxLoadFactor;
+  }
+}
+
+enum UAVControlMode {
+  MANUAL = "manual",
+  AUTOPILOT = "autopilot",
+  MSN = "msn",
+}
+
+class UAV {
+  dynamics: UAVDynamics = new UAVDynamics(10, 1);
+  limits: UAVLimits = new UAVLimits(60, 8);
+  tailNumber: string = "";
+
+  setTailNumber(tailNumber: string) {
+    this.tailNumber = tailNumber;
   }
 }
 
@@ -472,17 +471,25 @@ class UAVState {
    */
   verticalVelocity: number = 0;
 
+  controlMode: UAVControlMode = UAVControlMode.MANUAL;
+
   constructor(uav: UAV) {
     this.uav = uav;
   }
 
-  setIntialAttitude(
-    heading: number | CardinalDirection,
-    keas: number | Knots,
-    altitude: number | Feet,
-    gamma: number,
-    bank: number
-  ) {
+  setIntialAttitude({
+    heading,
+    keas,
+    altitude,
+    gamma,
+    bank,
+  }: {
+    heading: number | CardinalDirection;
+    keas: number | Knots;
+    altitude: number | Feet;
+    gamma: number;
+    bank: number;
+  }) {
     this.heading =
       heading instanceof CardinalDirection
         ? heading
@@ -661,28 +668,28 @@ class UAVState {
   }
 }
 
-// create the world
-let reaper = new MQ9();
-let reaperState = new UAVState(reaper);
-let environment = new Environment();
+class MQ9 extends UAV {
+  dynamics = new UAVDynamics(10, 0.6);
+  limits = new UAVLimits(45, 2.5);
+}
 
-// init the environment
-environment.setWind(new Wind(270, 30));
-environment.setSurfaceTemperature(new Temperature(80));
-
-// init the UAV
-reaperState.setIntialAttitude(
-  new CardinalDirection(360),
-  new Knots(120),
-  new Feet(20_000),
-  -3,
-  0
-);
-
-// init the performance values
-reaperState.updatePerformanceValues(environment);
-
-console.log(reaperState);
+export {
+  Knots,
+  Feet,
+  Meters,
+  Acceleration,
+  CardinalDirection,
+  Gravity,
+  Wind,
+  Temperature,
+  Environment,
+  UAVDynamics,
+  UAVLimits,
+  UAVControlMode,
+  UAV,
+  UAVState,
+  MQ9,
+};
 
 // type UAVState = {
 
