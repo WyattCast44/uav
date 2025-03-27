@@ -1,8 +1,10 @@
+import { normalizeHeading } from "./math";
+
 class CardinalDegree {
   value: number;
 
   constructor(value: number) {
-    this.value = value < 0 ? 0 : value % 360;
+    this.value = normalizeHeading(value);
   }
 
   static fromDegrees(value: number): CardinalDegree {
