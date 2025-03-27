@@ -1,55 +1,20 @@
-import { degToRad, radToDeg } from "./math";
 import {
-  Knots,
+  Acceleration,
+  CardinalDegree,
+  Degrees,
+  Environment,
   Feet,
   Gravity,
-  CardinalDegree,
-  Acceleration,
-  Environment,
-  Degrees,
-} from "./support";
-
-class UAVDynamics {
-  rollRate: number;
-  rollRateCompensator: number;
-
-  constructor(rollRate: number, rollRateCompensator: number) {
-    this.rollRate = rollRate;
-    this.rollRateCompensator = rollRateCompensator;
-  }
-
-  get effectiveRollRate(): number {
-    return this.rollRate * this.rollRateCompensator;
-  }
-}
-
-class UAVLimits {
-  maxBankAngle: number;
-  maxLoadFactor: number;
-
-  constructor(maxBankAngle: number, maxLoadFactor: number) {
-    this.maxBankAngle = maxBankAngle;
-    this.maxLoadFactor = maxLoadFactor;
-  }
-}
-
-enum UAVControlMode {
-  MANUAL = "manual",
-  AUTOPILOT = "autopilot",
-  MSN = "msn",
-}
-
-class UAV {
-  dynamics: UAVDynamics = new UAVDynamics(10, 1);
-  limits: UAVLimits = new UAVLimits(60, 8);
-  tailNumber: string = "";
-
-  setTailNumber(tailNumber: string) {
-    this.tailNumber = tailNumber;
-  }
-}
+  Knots,
+} from "../support";
+import UAV from "./uav";
+import UAVControlMode from "./UAVControlMode";
+import { radToDeg } from "three/src/math/MathUtils.js";
 
 class UAVState {
+  /**
+   * The UAV instance
+   */
   uav: UAV;
 
   /**
@@ -311,7 +276,7 @@ class UAVState {
    * @returns The load factor of the UAV. Units are unitless.
    */
   #calculateLoadFactor(): number {
-    return parseFloat((1 / Math.cos(degToRad(this.bank.degrees))).toFixed(2));
+    return parseFloat((1 / Math.cos(this.bank.radians)).toFixed(2));
   }
 
   /**
@@ -331,7 +296,7 @@ class UAVState {
   #calculateTurnRate(): number {
     let turnRateDegreesPerSecond = radToDeg(
       (this.experiencedGravity.convertTo("m/s^2").value *
-        Math.tan(degToRad(this.bank.degrees))) /
+        Math.tan(this.bank.radians)) /
         this.ktas.metersPerSecond
     );
 
@@ -360,46 +325,10 @@ class UAVState {
   #calculateVerticalVelocity(): number {
     let kgsFeetPerMinute = this.groundSpeed.feetPerSecond * 60;
 
-    let verticalVelocity = kgsFeetPerMinute * Math.sin(degToRad(this.gamma.degrees));
+    let verticalVelocity = kgsFeetPerMinute * Math.sin(this.gamma.radians);
 
     return parseFloat(verticalVelocity.toFixed(2));
   }
 }
 
-class MQ9 extends UAV {
-  dynamics = new UAVDynamics(10, 0.6);
-  limits = new UAVLimits(45, 2.5);
-}
-
-export {
-  Environment,
-  UAVDynamics,
-  UAVLimits,
-  UAVControlMode,
-  UAV,
-  UAVState,
-  MQ9,
-};
-
-// type UAVState = {
-
-//   // Commanded Attitude - will be set by the pilot or autopilot
-//   commandedHeading: number;
-//   commandedKeas: number;
-//   commandedAltitude: number;
-//   commandedGamma: number;
-//   commandedBank: number;
-
-//   // Position
-//   position?: {
-//     x: number; // is relative to earth. Will be in longitude.
-//     y: number; // is relative to earth. Will be in latitude.
-//     z: number; // is relative to earth. Will be in altitude. Will be in feet.
-//   };
-
-//   positionThreeJs?: {
-//     x: number; // is relative to the origin of the scene. Is aligned with the LONGITUDINAL axis of the aircraft.
-//     y: number; // is relative to the origin of the scene. Is aligned with the VERTICAL axis of the aircraft.
-//     z: number; // is relative to the origin of the scene. Is aligned with the LATERAL axis of the aircraft.
-//   };
-// };
+export default UAVState;

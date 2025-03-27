@@ -1,8 +1,14 @@
-import { MQ9, UAVState } from "./uav";
-
 import { MQ9Hud } from "./hud";
 import { Simulation } from "./sim";
-import { CardinalDegree, Knots, Feet, Environment, Wind, Temperature } from "./support";
+import { MQ9, UAVState } from "./uav";
+import {
+  CardinalDegree,
+  Knots,
+  Feet,
+  Environment,
+  Wind,
+  Temperature,
+} from "./support";
 
 // create & init the UAV
 let reaper = new MQ9();
