@@ -387,7 +387,7 @@ class MQ9Hud extends UAVHud {
 
       // TODO: Add commanded bank angle
       if (angle === 45 || angle === -45) {
-        if (Math.abs(this.uavState.bank) >= 30) {
+        if (Math.abs(this.uavState.bank.degrees) >= 30) {
           tickLength = 15;
         } else {
           tickLength = 0;
@@ -396,7 +396,7 @@ class MQ9Hud extends UAVHud {
 
       // TODO: Add commanded bank angle
       if (angle === 60 || angle === -60) {
-        if (Math.abs(this.uavState.bank) >= 45) {
+        if (Math.abs(this.uavState.bank.degrees) >= 45) {
           tickLength = 20;
         } else {
           tickLength = 0;
@@ -429,7 +429,7 @@ class MQ9Hud extends UAVHud {
     }
 
     // Draw the commanded bank angle
-    let commandedBankAngle = this.uavState.bank + 90;
+    let commandedBankAngle = this.uavState.bank.degrees + 90;
     let tipPoint = polarToCartesian(
       bankX,
       bankY,
@@ -463,7 +463,7 @@ class MQ9Hud extends UAVHud {
 
   renderClock() {
     let canvas = this.canvas;
-    let clockX = canvas.displayWidth - 130;
+    let clockX = (canvas.displayWidth / 6) * 5;
     let clockY = canvas.displayHeight - canvas.displayHeight + 110;
     let ctx = this.canvas.context;
 

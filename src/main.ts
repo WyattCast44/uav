@@ -1,25 +1,18 @@
-import {
-  MQ9,
-  UAVState,
-  Environment,
-  Wind,
-  Temperature,
-  CardinalDirection,
-  Knots,
-  Feet,
-} from "./uav";
+import { MQ9, UAVState } from "./uav";
 
 import { MQ9Hud } from "./hud";
 import { Simulation } from "./sim";
+import { CardinalDegree, Knots, Feet, Environment, Wind, Temperature } from "./support";
 
 // create & init the UAV
 let reaper = new MQ9();
 reaper.setTailNumber("732");
 
+// create & init the UAV state
 let reaperState = new UAVState(reaper);
 
 reaperState.setIntialAttitude({
-  heading: new CardinalDirection(360),
+  heading: new CardinalDegree(360),
   keas: new Knots(120),
   altitude: new Feet(20_000),
   gamma: -3,
@@ -27,9 +20,10 @@ reaperState.setIntialAttitude({
 });
 
 // create & init the environment
-let environment = new Environment();
-environment.setWind(new Wind(270, 30));
-environment.setSurfaceTemperature(new Temperature(80));
+let environment = new Environment({
+  wind: new Wind({ direction: 270, speed: 30 }),
+  surfaceTemperature: Temperature.standardDayAtSeaLevel("F"),
+});
 
 // init the performance values
 reaperState.updatePerformanceValues(environment);
@@ -52,3 +46,11 @@ hud.render();
 let simulation = new Simulation(reaper, reaperState, environment);
 
 console.log(hud, simulation);
+
+// setup an animation loop
+let animationLoop = () => {
+  requestAnimationFrame(animationLoop);
+  hud.render();
+};
+
+animationLoop();

@@ -1,313 +1,13 @@
 import { degToRad, radToDeg } from "./math";
-class Knots {
-  value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  get knots(): number {
-    return this.value;
-  }
-
-  get metersPerSecond(): number {
-    return this.value * 0.514444444;
-  }
-
-  get feetPerSecond(): number {
-    return this.value * 1.687809857;
-  }
-
-  get kilometersPerSecond(): number {
-    return this.value * 0.000514444444;
-  }
-}
-
-class Feet {
-  value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  get feet(): number {
-    return this.value;
-  }
-
-  get meters(): number {
-    return this.value * 0.3048;
-  }
-}
-
-class Meters {
-  value: number;
-
-  constructor(value: number) {
-    this.value = value;
-  }
-
-  get meters(): number {
-    return this.value;
-  }
-
-  get feet(): Feet {
-    return new Feet(this.value * 3.28084);
-  }
-}
-
-class Acceleration {
-  value: number;
-  units: "ft/s^2" | "m/s^2";
-
-  constructor(value: number, units: "ft/s^2" | "m/s^2" = "ft/s^2") {
-    this.value = value;
-    this.units = units;
-  }
-
-  static fromFeetPerSecondSquared(value: number): Acceleration {
-    return new Acceleration(value, "ft/s^2");
-  }
-
-  static fromMetersPerSecondSquared(value: number): Acceleration {
-    return new Acceleration(value, "m/s^2");
-  }
-
-  get ftPerSecondSquared(): number {
-    if (this.units === "ft/s^2") {
-      return parseFloat(this.value.toFixed(6));
-    } else {
-      return parseFloat((this.value * 0.3048).toFixed(6));
-    }
-  }
-
-  get metersPerSecondSquared(): number {
-    if (this.units === "m/s^2") {
-      return parseFloat(this.value.toFixed(6));
-    } else {
-      return parseFloat((this.value * 0.3048).toFixed(6));
-    }
-  }
-
-  convertTo(units: "ft/s^2" | "m/s^2"): Acceleration {
-    if (this.units === units) {
-      return this;
-    }
-
-    if (units === "ft/s^2") {
-      return new Acceleration(this.metersPerSecondSquared * 3.28084, "ft/s^2");
-    } else {
-      return new Acceleration(this.ftPerSecondSquared * 0.3048, "m/s^2");
-    }
-  }
-}
-
-class CardinalDirection {
-  value: number;
-
-  /**
-   * The value of the cardinal direction in degrees.
-   *
-   * Units: degrees
-   */
-  constructor(value: number) {
-    this.value = value < 0 ? 0 : value % 360;
-  }
-
-  get degrees(): number {
-    return this.value;
-  }
-
-  get radians(): number {
-    return degToRad(this.value);
-  }
-}
-
-class Gravity {
-  static get ftPerSecondSquaredAtSeaLevel(): Acceleration {
-    return new Acceleration(32.174049, "ft/s^2");
-  }
-
-  static get metersPerSecondSquaredAtSeaLevel(): Acceleration {
-    return new Acceleration(9.80665, "m/s^2");
-  }
-
-  static estimateGravityAtAltitude(altitude: Feet): Acceleration {
-    let meanRadiusOfEarth = new Meters(6_378_100);
-
-    // m/s^2
-    let gravity =
-      this.metersPerSecondSquaredAtSeaLevel.metersPerSecondSquared *
-      Math.pow(
-        meanRadiusOfEarth.meters / (meanRadiusOfEarth.meters + altitude.meters),
-        2
-      );
-
-    return new Acceleration(gravity, "m/s^2").convertTo("ft/s^2");
-  }
-}
-
-class Wind {
-  cardinalDirection: CardinalDirection;
-  speed: Knots;
-
-  constructor(direction: number | CardinalDirection, speed: number | Knots) {
-    this.cardinalDirection =
-      direction instanceof CardinalDirection
-        ? direction
-        : new CardinalDirection(direction);
-    this.speed = speed instanceof Knots ? speed : new Knots(speed);
-  }
-
-  /**
-   * The direction the wind is coming FROM.
-   *
-   * Units: degrees cardinal
-   */
-  get directionFromCardinal(): CardinalDirection {
-    return this.cardinalDirection;
-  }
-
-  /**
-   * The direction the wind is coming FROM.
-   *
-   * Units: radians
-   */
-  get directionFromCardinalRadians(): number {
-    return this.directionFromCardinal.radians;
-  }
-
-  /**
-   * The direction the wind is coming FROM.
-   *
-   * Units: degrees math
-   */
-  get directionFromMath(): number {
-    return 90 - this.cardinalDirection.degrees;
-  }
-
-  /**
-   * The direction the wind is coming FROM.
-   *
-   * Units: radians
-   */
-  get directionFromMathRadians(): number {
-    return degToRad(this.directionFromMath);
-  }
-
-  /**
-   * The direction the wind is pointing TO.
-   *
-   * Units: degrees cardinal
-   */
-  get directionToCardinal(): number {
-    return (this.cardinalDirection.degrees - 180) % 360;
-  }
-
-  get directionToCardinalRadians(): number {
-    return degToRad(this.directionToCardinal);
-  }
-
-  /**
-   * The direction the wind is pointing TO.
-   *
-   * Units: degrees math
-   */
-  get directionToMath(): number {
-    return 90 - ((this.cardinalDirection.degrees - 180) % 360);
-  }
-
-  /**
-   * The direction the wind is pointing TO.
-   *
-   * Units: radians
-   */
-  get directionToMathRadians(): number {
-    return degToRad(this.directionToMath);
-  }
-
-  /**
-   * The north component of the wind.
-   *
-   * Units: knots
-   */
-  get windNorthComponent(): Knots {
-    return new Knots(
-      this.speed.knots * Math.cos(this.directionToCardinalRadians)
-    );
-  }
-
-  /**
-   * The east component of the wind.
-   *
-   * Units: knots
-   */
-  get windEastComponent(): Knots {
-    return new Knots(
-      this.speed.knots * Math.sin(this.directionToCardinalRadians)
-    );
-  }
-}
-
-class Temperature {
-  temperature: number;
-
-  /**
-   * The temperature in degrees Fahrenheit.
-   *
-   * Units: degrees Fahrenheit
-   */
-  constructor(temperature: number) {
-    this.temperature = temperature;
-  }
-
-  get temperatureFahrenheit(): number {
-    return this.temperature;
-  }
-
-  get temperatureCelsius(): number {
-    return (this.temperature - 32) * (5 / 9);
-  }
-
-  get temperatureKelvin(): number {
-    return this.temperatureCelsius + 273.15;
-  }
-}
-
-class Environment {
-  wind: Wind;
-  surfaceTemperature: Temperature;
-
-  constructor() {
-    // 0 knots, 0 degrees
-    this.wind = new Wind(0, 0);
-    // 20 degrees Celsius, standard day at sea level
-    this.surfaceTemperature = new Temperature(68);
-  }
-
-  setWind(wind: Wind) {
-    this.wind = wind;
-  }
-
-  setSurfaceTemperature(temperature: Temperature) {
-    this.surfaceTemperature = temperature;
-  }
-
-  /**
-   * Calculate the density of the air at a given altitude.
-   *
-   * Based on an analysis of the NASA standard atmosphere of 1976.
-   *
-   * @param altitude - The altitude in feet
-   * @returns The density of the air at the given altitude. Units are kg/m^3
-   */
-  estimateAirDensityAtAltitude(altitude: Feet): number {
-    return (
-      1.22 +
-      -3.39 * Math.pow(10, -5) * altitude.feet +
-      2.8 * Math.pow(10, -10) * Math.pow(altitude.feet, 2)
-    );
-  }
-}
+import {
+  Knots,
+  Feet,
+  Gravity,
+  CardinalDegree,
+  Acceleration,
+  Environment,
+  Degrees,
+} from "./support";
 
 class UAVDynamics {
   rollRate: number;
@@ -362,7 +62,7 @@ class UAVState {
    *
    * Units: degrees
    */
-  heading: CardinalDirection = new CardinalDirection(360);
+  heading: CardinalDegree = new CardinalDegree(360);
 
   /**
    * The equivalent airspeed of the UAV. This is the speed of the UAV relative to the air.
@@ -383,7 +83,7 @@ class UAVState {
    *
    * Units: degrees
    */
-  gamma: number = 0;
+  gamma: Degrees = new Degrees(0);
 
   /**
    * The bank angle of the UAV. This is the angle between the UAV's wings and the horizontal. Will be in degrees.
@@ -392,7 +92,7 @@ class UAVState {
    *
    * Units: degrees
    */
-  bank: number = 0;
+  bank: Degrees = new Degrees(0);
 
   /**
    * |---------------------------
@@ -426,7 +126,7 @@ class UAVState {
    *
    * Units: degrees cardinal
    */
-  course: CardinalDirection = new CardinalDirection(0);
+  course: CardinalDegree = new CardinalDegree(0);
 
   /**
    * The load factor of the UAV. This is the ratio of the lift force to the weight of the UAV.
@@ -484,20 +184,18 @@ class UAVState {
     gamma,
     bank,
   }: {
-    heading: number | CardinalDirection;
+    heading: number | CardinalDegree;
     keas: number | Knots;
     altitude: number | Feet;
-    gamma: number;
-    bank: number;
+    gamma: number | Degrees;
+    bank: number | Degrees;
   }) {
     this.heading =
-      heading instanceof CardinalDirection
-        ? heading
-        : new CardinalDirection(heading);
+      heading instanceof CardinalDegree ? heading : new CardinalDegree(heading);
     this.keas = keas instanceof Knots ? keas : new Knots(keas);
     this.altitude = altitude instanceof Feet ? altitude : new Feet(altitude);
-    this.gamma = gamma;
-    this.bank = bank;
+    this.gamma = gamma instanceof Degrees ? gamma : new Degrees(gamma);
+    this.bank = bank instanceof Degrees ? bank : new Degrees(bank);
   }
 
   /**
@@ -591,7 +289,7 @@ class UAVState {
    *
    * @returns The course of the UAV. Units are degrees cardinal.
    */
-  #calculateCourse(environment: Environment): CardinalDirection {
+  #calculateCourse(environment: Environment): CardinalDegree {
     let ktasNorth = this.ktas.knots * Math.cos(this.heading.radians);
     let ktasEast = this.ktas.knots * Math.sin(this.heading.radians);
 
@@ -604,7 +302,7 @@ class UAVState {
     let courseRadians = Math.atan2(groundSpeedEast, groundSpeedNorth);
     let courseDegrees = radToDeg(courseRadians);
 
-    return new CardinalDirection(Math.round(courseDegrees));
+    return new CardinalDegree(Math.round(courseDegrees));
   }
 
   /**
@@ -613,7 +311,7 @@ class UAVState {
    * @returns The load factor of the UAV. Units are unitless.
    */
   #calculateLoadFactor(): number {
-    return parseFloat((1 / Math.cos(degToRad(this.bank))).toFixed(2));
+    return parseFloat((1 / Math.cos(degToRad(this.bank.degrees))).toFixed(2));
   }
 
   /**
@@ -622,7 +320,7 @@ class UAVState {
    * @returns The gravity experienced by the UAV. Units are ft/s^2.
    */
   #calculateExperiencedGravity(): Acceleration {
-    return Gravity.estimateGravityAtAltitude(this.altitude).convertTo("ft/s^2");
+    return Gravity.estimateGravityAtAltitude(this.altitude, "ft/s^2");
   }
 
   /**
@@ -633,7 +331,7 @@ class UAVState {
   #calculateTurnRate(): number {
     let turnRateDegreesPerSecond = radToDeg(
       (this.experiencedGravity.convertTo("m/s^2").value *
-        Math.tan(degToRad(this.bank))) /
+        Math.tan(degToRad(this.bank.degrees))) /
         this.ktas.metersPerSecond
     );
 
@@ -662,7 +360,7 @@ class UAVState {
   #calculateVerticalVelocity(): number {
     let kgsFeetPerMinute = this.groundSpeed.feetPerSecond * 60;
 
-    let verticalVelocity = kgsFeetPerMinute * Math.sin(degToRad(this.gamma));
+    let verticalVelocity = kgsFeetPerMinute * Math.sin(degToRad(this.gamma.degrees));
 
     return parseFloat(verticalVelocity.toFixed(2));
   }
@@ -674,14 +372,6 @@ class MQ9 extends UAV {
 }
 
 export {
-  Knots,
-  Feet,
-  Meters,
-  Acceleration,
-  CardinalDirection,
-  Gravity,
-  Wind,
-  Temperature,
   Environment,
   UAVDynamics,
   UAVLimits,
