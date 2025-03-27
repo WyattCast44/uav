@@ -22,12 +22,12 @@ reaperState.setIntialAttitude({
   keas: new Knots(120),
   altitude: new Feet(20_000),
   gamma: -3,
-  bank: -30,
+  bank: 0,
 });
 
 // create & init the environment
 let environment = new Environment({
-  wind: new Wind({ direction: 270, speed: 30 }),
+  wind: new Wind({ direction: 317, speed: 69 }),
   surfaceTemperature: Temperature.standardDayAtSeaLevel("F"),
 });
 

@@ -1,4 +1,8 @@
-import { normalizeHeading, polarToCartesian, rotatePoint } from "../support/math";
+import {
+  normalizeHeading,
+  polarToCartesian,
+  rotatePoint,
+} from "../support/math";
 import { Environment } from "../support";
 import { MQ9, UAVState } from "../uav";
 import UAVHud from "./UAVHud";
@@ -16,8 +20,9 @@ class MQ9Hud extends UAVHud {
     this.canvas.addRenderableItem(this.renderGForce.bind(this));
     this.canvas.addRenderableItem(this.renderBankIndicator.bind(this));
     this.canvas.addRenderableItem(this.renderClock.bind(this));
-    this.canvas.addRenderableItem(this.renderHeadingBar.bind(this));
     this.canvas.addRenderableItem(this.renderWind.bind(this));
+    this.canvas.addRenderableItem(this.renderHeadingBar.bind(this));
+    this.canvas.addRenderableItem(this.renderPitchLadder.bind(this));
   }
 
   renderAirspeed() {
@@ -269,6 +274,337 @@ class MQ9Hud extends UAVHud {
     ctx.fillText(clockString, clockX, clockY);
   }
 
+  renderWind() {
+    let canvas = this.canvas;
+    let windX = canvas.displayWidth / 6;
+    let windY = canvas.displayHeight - (canvas.displayHeight / 6) * 5;
+    let ctx = this.canvas.context;
+
+    let windDirectionCardinal = this.environment.wind.cardinalDirection.degrees;
+    let windSpeed = this.environment.wind.speed;
+
+    // Draw the wind barb
+    let windBarbX = windX;
+    let windBarbY = windY;
+    let windBarbLength = 30;
+
+    // the wind barb angle is the wind direction relative to our current heading
+    // for example, if we are heading heading 360 and the wind is coming from 350,
+    // the wind bard should be angled 10 degrees left because the wind is coming from the left
+    // if the wind was coming from 270, the wind barb would be horizontal and pointing to the right
+    // if the wind was coming from 180, the wind barb would be vertical and pointing up
+    // if the wind was coming from 90, the wind barb would be horizontal and pointing to the left
+    let windBarbAngle =
+      ((windDirectionCardinal - this.uavState.heading.degrees) % 360) - 180;
+
+    let windBarbTip = {
+      x: windBarbX,
+      y: windBarbY,
+    };
+
+    let windBarbTail = {
+      x: windBarbX,
+      y: windBarbY + windBarbLength,
+    };
+
+    let windBarbArrowheadTriangleLeftPoint = {
+      x: windBarbX - windBarbLength / 6,
+      y: windBarbY + windBarbLength / 4,
+    };
+
+    let windBarbArrowheadTriangleRightPoint = {
+      x: windBarbX + windBarbLength / 6,
+      y: windBarbY + windBarbLength / 4,
+    };
+
+    // okay, now we need to rotate the wind barb around the tip point
+    windBarbTip = rotatePoint(windBarbTip, windBarbTip, windBarbAngle);
+    windBarbTail = rotatePoint(windBarbTail, windBarbTip, windBarbAngle);
+    windBarbArrowheadTriangleLeftPoint = rotatePoint(
+      windBarbArrowheadTriangleLeftPoint,
+      windBarbTip,
+      windBarbAngle
+    );
+    windBarbArrowheadTriangleRightPoint = rotatePoint(
+      windBarbArrowheadTriangleRightPoint,
+      windBarbTip,
+      windBarbAngle
+    );
+
+    // Draw the rotated wind barb
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(windBarbTip.x, windBarbTip.y);
+    ctx.lineTo(windBarbTail.x, windBarbTail.y);
+    ctx.moveTo(windBarbTip.x, windBarbTip.y);
+    ctx.lineTo(
+      windBarbArrowheadTriangleLeftPoint.x,
+      windBarbArrowheadTriangleLeftPoint.y
+    );
+    ctx.lineTo(
+      windBarbArrowheadTriangleRightPoint.x,
+      windBarbArrowheadTriangleRightPoint.y
+    );
+    ctx.closePath();
+    ctx.fillStyle = this.primaryGraphicsColor;
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw the wind speed text
+    // we need to position the text below the wind barb
+    // it should be centered below the wind barb
+    // and it should be offset by the width of the wind barb
+    let windSpeedTextX = windBarbTip.x;
+    let windSpeedTextY = windBarbTail.y + 25;
+
+    if (windSpeedTextY < windBarbTip.y) {
+      // we are inside the wind barb tail
+      // so we need to move the text down
+      windSpeedTextY = windBarbTip.y + 20;
+    } else if (Math.abs(windSpeedTextY - windBarbTip.y) < 20) {
+      // we are close to the wind barb tip
+      // so we need to move the text down
+      windSpeedTextY = windBarbTip.y + 20;
+    }
+
+    ctx.font = this.getFont(12);
+    ctx.fillStyle = this.primaryTextColor;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      windDirectionCardinal.toFixed(0) + "° " + windSpeed.value.toFixed(0),
+      windSpeedTextX,
+      windSpeedTextY
+    );
+  }
+
+  getLadderWidth(ladder: number): number {
+    let ladderWidths = {
+      0: 225,
+      2.5: 100,
+      5: 140,
+      10: 140,
+      15: 140,
+      20: 140,
+      25: 140,
+      30: 140,
+      35: 140,
+      40: 140,
+      45: 140,
+    };
+
+    return ladderWidths[Math.abs(ladder) as keyof typeof ladderWidths];
+  }
+
+  renderPitchLadder() {
+    let ladders = [
+      0, 5, 10, 15, 20, 25, 30, 35, 40, 45, -5, -10, -15, -20, -25, -30, -35,
+      -40, -45,
+    ];
+
+    // now lets draw the pitch ladder lines
+    for (let ladder of ladders) {
+      this.#renderGammaLadder(ladder);
+    }
+  }
+
+  #renderGammaLadder(ladder: number) {
+    let canvas = this.canvas;
+    let ctx = this.canvas.context;
+    let screenCenter = {
+      x: canvas.displayWidth / 2,
+      y: canvas.displayHeight / 2,
+    };
+
+    let ladderGapWidth = 75;
+    let ladderWidth = this.getLadderWidth(ladder);
+    let ladderStyle = ladder < 0 ? "dotted" : "solid";
+    let ladderVerticalSpacing = canvas.displayHeight / 23;
+    // if this is the horizon ladder line, we dont need the vertical spacing
+    ladderVerticalSpacing = ladder == 0 ? 0 : ladderVerticalSpacing;
+
+    // lets build the ladder line
+    let ladderLine = {
+      left: {
+        start: {
+          x: canvas.displayWidth / 2 - ladderWidth,
+          y: canvas.displayHeight / 2 + -ladder * ladderVerticalSpacing,
+        },
+        end: {
+          x: canvas.displayWidth / 2 - ladderGapWidth / 2,
+          y: canvas.displayHeight / 2 + -ladder * ladderVerticalSpacing,
+        },
+      },
+      right: {
+        start: {
+          x: canvas.displayWidth / 2 + ladderWidth,
+          y: canvas.displayHeight / 2 + -ladder * ladderVerticalSpacing,
+        },
+        end: {
+          x: canvas.displayWidth / 2 + ladderGapWidth / 2,
+          y: canvas.displayHeight / 2 + -ladder * ladderVerticalSpacing,
+        },
+      },
+      degree: ladder,
+    };
+
+    // calculate the center of the left side of the ladder line
+    let leftCenter = {
+      x: (ladderLine.left.start.x + ladderLine.left.end.x) / 2,
+      y: (ladderLine.left.start.y + ladderLine.left.end.y) / 2,
+    };
+
+    // calculate the center of the right side of the ladder line
+    let rightCenter = {
+      x: (ladderLine.right.start.x + ladderLine.right.end.x) / 2,
+      y: (ladderLine.right.start.y + ladderLine.right.end.y) / 2,
+    };
+
+    // rotate the left side of the ladder line by the pitch degree
+    let pitchRotatedLeft = {
+      start: rotatePoint(
+        ladderLine.left.start,
+        leftCenter,
+        ladderLine.degree / 2
+      ),
+      end: rotatePoint(ladderLine.left.end, leftCenter, ladderLine.degree / 2),
+    };
+
+    // rotate the right side of the ladder line by the pitch degree
+    let pitchRotatedRight = {
+      start: rotatePoint(
+        ladderLine.right.start,
+        rightCenter,
+        -ladderLine.degree / 2
+      ),
+      end: rotatePoint(
+        ladderLine.right.end,
+        rightCenter,
+        -ladderLine.degree / 2
+      ),
+    };
+
+    // rotate the left side of the ladder line by the bank degree
+    let rotatedLeft = {
+      start: rotatePoint(
+        pitchRotatedLeft.start,
+        screenCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint(
+        pitchRotatedLeft.end,
+        screenCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    };
+
+    // rotate the right side of the ladder line by the bank degree
+    let rotatedRight = {
+      start: rotatePoint(
+        pitchRotatedRight.start,
+        screenCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint(
+        pitchRotatedRight.end,
+        screenCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    };
+
+    // determine the number of dashes and the gap between them
+    let numDashes = 3;
+    let dashGap = 4;
+    let dashLength =
+      (ladderLine.left.end.x - ladderLine.left.start.x - dashGap) / numDashes;
+
+    // only show the dashes for the negative ladders
+    if (ladderLine.degree >= 0) {
+      ctx.setLineDash([]);
+    } else {
+      ctx.setLineDash([dashLength, dashGap]);
+    }
+
+    // draw the left side of the ladder line
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(rotatedLeft.start.x, rotatedLeft.start.y);
+    ctx.lineTo(rotatedLeft.end.x, rotatedLeft.end.y);
+    ctx.stroke();
+
+    // draw the right side of the ladder line
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(rotatedRight.start.x, rotatedRight.start.y);
+    ctx.lineTo(rotatedRight.end.x, rotatedRight.end.y);
+    ctx.stroke();
+
+    // if the ladder is negative, add a vertical line on the left side of right center
+    // and a vertical line on the right side of left center
+    if (ladderLine.degree < 0) {
+      // do the right side first
+      let rightVerticalLine = rotatePoint(
+        { x: rotatedRight.end.x, y: rotatedRight.end.y - 10 },
+        { x: rotatedRight.end.x, y: rotatedRight.end.y },
+        this.uavState.bank.degrees/2
+      );
+
+      ctx.beginPath();
+      ctx.strokeStyle = this.primaryGraphicsColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(rotatedRight.end.x, rotatedRight.end.y);
+      ctx.lineTo(rightVerticalLine.x, rightVerticalLine.y);
+      ctx.stroke();
+      ctx.beginPath();
+
+      // do the left side
+      let leftVerticalLine = rotatePoint(
+        { x: rotatedLeft.end.x, y: rotatedLeft.end.y - 10 },
+        { x: rotatedLeft.end.x, y: rotatedLeft.end.y },
+        this.uavState.bank.degrees/2
+      );
+      
+      ctx.beginPath();
+      ctx.strokeStyle = this.primaryGraphicsColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(rotatedLeft.end.x, rotatedLeft.end.y);
+      ctx.lineTo(leftVerticalLine.x, leftVerticalLine.y);
+      ctx.stroke();
+    } else if (ladderLine.degree > 0) {
+      // do the left side first
+
+      let leftVerticalLine = rotatePoint(
+        { x: rotatedLeft.start.x, y: rotatedLeft.start.y + 12 },
+        { x: rotatedLeft.start.x, y: rotatedLeft.start.y },
+        this.uavState.bank.degrees/2
+      );
+
+      ctx.beginPath();
+      ctx.strokeStyle = this.primaryGraphicsColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(rotatedLeft.start.x, rotatedLeft.start.y);
+      ctx.lineTo(leftVerticalLine.x, leftVerticalLine.y);
+      ctx.stroke();
+
+      // do the right side
+
+      let rightVerticalLine = rotatePoint(
+        { x: rotatedRight.start.x, y: rotatedRight.start.y + 12 },
+        { x: rotatedRight.start.x, y: rotatedRight.start.y },
+        this.uavState.bank.degrees/2
+      );
+
+      ctx.beginPath();
+      ctx.strokeStyle = this.primaryGraphicsColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(rotatedRight.start.x, rotatedRight.start.y);
+      ctx.lineTo(rightVerticalLine.x, rightVerticalLine.y);
+      ctx.stroke();
+    }
+  }
+
   renderHeadingBar() {
     let canvas = this.canvas;
     let headingX = canvas.displayWidth / 2;
@@ -282,7 +618,14 @@ class MQ9Hud extends UAVHud {
     let headingStripHeight = 8;
     let tickSpacing = headingStripWidth / 60;
     let majorTickHeight = headingStripHeight;
-    let minorTickHeight = headingStripHeight*0.5;
+    let minorTickHeight = headingStripHeight * 0.5;
+
+    // draw a box around the heading bar
+    // ctx.strokeStyle = "black";
+    // ctx.lineWidth = 1;
+    // ctx.strokeRect(headingX-headingStripWidth/2-10, headingY-headingStripHeight-10, headingStripWidth+20, headingStripHeight+50);
+    // ctx.fillStyle = "black";  
+    // ctx.fillRect(headingX-headingStripWidth/2-10, headingY-headingStripHeight-10, headingStripWidth+20, headingStripHeight+50);
 
     let ticks = [];
     let labels = [];
@@ -331,21 +674,21 @@ class MQ9Hud extends UAVHud {
         ctx.closePath();
         ctx.stroke();
 
-        // lets also draw a current heading indicator, 
+        // lets also draw a current heading indicator,
         // it will be a inverted triangle with the tip pointing down
         tipPoint = {
-          x: (headingStripX+.5),
-          y: headingStripY+1,
+          x: headingStripX + 0.5,
+          y: headingStripY + 1,
         };
 
         leftBase = {
-          x: (headingStripX+.5) - 5,
-          y: headingStripY-3,
+          x: headingStripX + 0.5 - 5,
+          y: headingStripY - 3,
         };
 
         rightBase = {
-          x: (headingStripX+.5) + 5,
-          y: headingStripY-3,
+          x: headingStripX + 0.5 + 5,
+          y: headingStripY - 3,
         };
 
         ctx.beginPath();
@@ -372,7 +715,7 @@ class MQ9Hud extends UAVHud {
         ticks.push({
           x,
           y: headingStripY + minorTickHeight,
-          height: minorTickHeight+3,
+          height: minorTickHeight + 3,
         });
       }
 
@@ -413,7 +756,7 @@ class MQ9Hud extends UAVHud {
     ctx.strokeStyle = this.primaryGraphicsColor;
     ctx.lineWidth = 1;
     ctx.strokeRect(
-      headingX - headingBoxWidth / 2 +5,
+      headingX - headingBoxWidth / 2 + 5,
       headingY - headingBoxHeight / 2 - 6,
       headingBoxWidth,
       headingBoxHeight
@@ -432,95 +775,9 @@ class MQ9Hud extends UAVHud {
     ctx.textAlign = "center";
     ctx.fillText(
       normalizedHeading.toFixed(0).padStart(3, "0"),
-      headingX+5,
-      headingY-1
+      headingX + 5,
+      headingY - 1
     );
-  }
-
-  renderWind() {
-    let canvas = this.canvas;
-    let windX = (canvas.displayWidth / 6);
-    let windY = canvas.displayHeight - (canvas.displayHeight / 6)*5;
-    let ctx = this.canvas.context;
-    
-    let windDirectionCardinal = this.environment.wind.cardinalDirection.degrees;
-    let windSpeed = this.environment.wind.speed;
-
-    // Draw the wind barb
-    let windBarbX = windX;
-    let windBarbY = windY;
-    let windBarbLength = 30;
-
-    // the wind barb angle is the wind direction relative to our current heading
-    // for example, if we are heading heading 360 and the wind is coming from 350,
-    // the wind bard should be angled 10 degrees left because the wind is coming from the left
-    // if the wind was coming from 270, the wind barb would be horizontal and pointing to the right
-    // if the wind was coming from 180, the wind barb would be vertical and pointing up
-    // if the wind was coming from 90, the wind barb would be horizontal and pointing to the left
-    let windBarbAngle = (windDirectionCardinal - this.uavState.heading.degrees) % 360 - 180;
-
-    let windBarbTip = {
-      x: windBarbX,
-      y: windBarbY
-    }
-
-    let windBarbTail = {
-      x: windBarbX,
-      y: windBarbY + windBarbLength
-    }
-
-    let windBarbArrowheadTriangleLeftPoint = {
-      x: windBarbX-windBarbLength/6,
-      y: windBarbY + windBarbLength/4 
-    }
-
-    let windBarbArrowheadTriangleRightPoint = {
-      x: windBarbX+windBarbLength/6,
-      y: windBarbY + windBarbLength/4 
-    }
-
-    // okay, now we need to rotate the wind barb around the tip point
-    windBarbTip = rotatePoint(windBarbTip, windBarbTip, windBarbAngle);
-    windBarbTail = rotatePoint(windBarbTail, windBarbTip, windBarbAngle);
-    windBarbArrowheadTriangleLeftPoint = rotatePoint(windBarbArrowheadTriangleLeftPoint, windBarbTip, windBarbAngle);
-    windBarbArrowheadTriangleRightPoint = rotatePoint(windBarbArrowheadTriangleRightPoint, windBarbTip, windBarbAngle);
-
-    // Draw the rotated wind barb
-    ctx.strokeStyle = this.primaryGraphicsColor;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(windBarbTip.x, windBarbTip.y);
-    ctx.lineTo(windBarbTail.x, windBarbTail.y);
-    ctx.moveTo(windBarbTip.x, windBarbTip.y);
-    ctx.lineTo(windBarbArrowheadTriangleLeftPoint.x, windBarbArrowheadTriangleLeftPoint.y);
-    ctx.lineTo(windBarbArrowheadTriangleRightPoint.x, windBarbArrowheadTriangleRightPoint.y);
-    ctx.closePath();
-    ctx.fillStyle = this.primaryGraphicsColor;
-    ctx.fill();
-    ctx.stroke();
-
-    // Draw the wind speed text
-    // we need to position the text below the wind barb
-    // it should be centered below the wind barb
-    // and it should be offset by the width of the wind barb
-    let windSpeedTextX = windBarbTip.x;
-    let windSpeedTextY = windBarbTail.y + 25;
-
-    if(windSpeedTextY < windBarbTip.y) {
-      // we are inside the wind barb tail
-      // so we need to move the text down
-      windSpeedTextY = windBarbTip.y + 20;
-    } else if(Math.abs(windSpeedTextY- windBarbTip.y) < 20) {
-      // we are close to the wind barb tip
-      // so we need to move the text down
-      windSpeedTextY = windBarbTip.y + 20;
-    }
-    
-    ctx.font = this.getFont(10);
-    ctx.fillStyle = this.primaryTextColor;
-    ctx.textAlign = "center";
-    ctx.fillText(windDirectionCardinal.toFixed(0) + "° " + windSpeed.value.toFixed(0), windSpeedTextX, windSpeedTextY);
-    
   }
 }
 
