@@ -7,7 +7,9 @@ import {
   Gravity,
   Knots,
 } from "../support";
-import UAV from "./uav";
+import { BoardsStatus } from "./BoardsStatus";
+import { GearStatus } from "./GearStatus";
+import UAV from "./UAV";
 import UAVControlMode from "./UAVControlMode";
 import { radToDeg } from "three/src/math/MathUtils.js";
 
@@ -136,7 +138,26 @@ class UAVState {
    */
   verticalVelocity: number = 0;
 
+  /**
+   * The control mode of the UAV. This is the mode that the UAV is in.
+   *
+   * Enum: UAVControlMode
+   */
   controlMode: UAVControlMode = UAVControlMode.MANUAL;
+  
+  /**
+   * The gear status of the UAV. This is the status of the gear of the UAV.
+   *
+   * Enum: GearStatus
+   */
+  gearStatus: GearStatus = GearStatus.UP;
+
+  /**
+   * The boards status of the UAV. This is the status of the boards of the UAV.
+   *
+   * Enum: BoardsStatus
+   */
+  boardsStatus: BoardsStatus = BoardsStatus.NONE;
 
   constructor(uav: UAV) {
     this.uav = uav;

@@ -5,6 +5,10 @@ class Feet {
     this.value = value;
   }
 
+  static fromMeters(meters: number): Feet {
+    return new Feet(meters * 3.28084);
+  }
+
   get feet(): number {
     return this.value;
   }

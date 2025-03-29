@@ -4,8 +4,10 @@ import {
   rotatePoint,
 } from "../support/math";
 import { Environment } from "../support";
-import { MQ9, UAVState } from "../uav";
+import { GearStatus, MQ9, UAVState } from "../uav";
 import UAVHud from "./UAVHud";
+import { degToRad } from "three/src/math/MathUtils.js";
+import { BoardsStatus } from "../uav/BoardsStatus";
 
 class MQ9Hud extends UAVHud {
   constructor(uav: MQ9, uavState: UAVState, environment: Environment) {
@@ -23,9 +25,18 @@ class MQ9Hud extends UAVHud {
     this.canvas.addRenderableItem(this.renderWind.bind(this));
     this.canvas.addRenderableItem(this.renderHeadingBar.bind(this));
     this.canvas.addRenderableItem(this.renderPitchLadder.bind(this));
+    this.canvas.addRenderableItem(this.renderFlightPathMarker.bind(this));
   }
 
   renderAirspeed() {
+    if (this.uavState.gearStatus === GearStatus.UP) {
+      this.#renderGearUpAirspeedIndicator();
+    } else {
+      this.#renderGearDownAirspeedIndicator();
+    }
+  }
+
+  #renderGearUpAirspeedIndicator() {
     let canvas = this.canvas;
     let airspeedX = canvas.displayWidth / 6;
     let airspeedY = canvas.displayHeight / 2;
@@ -50,7 +61,52 @@ class MQ9Hud extends UAVHud {
     );
   }
 
+  #renderGearDownAirspeedIndicator() {
+    let canvas = this.canvas;
+    let airspeedX = canvas.displayWidth / 6 + 15;
+    let airspeedY = canvas.displayHeight / 2 - 20;
+    let airspeedTextX = airspeedX - 0;
+    let airspeedTextY = airspeedY + 6;
+    let ctx = this.canvas.context;
+
+    // Draw the airspeed text
+    ctx.font = this.getFont(20);
+    ctx.fillStyle = this.primaryTextColor;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      this.uavState.keas.value.toFixed(0),
+      airspeedTextX,
+      airspeedTextY
+    );
+
+    // Draw the airspeed circle
+    let circleRadius = 30;
+
+    // Determine the stroke pattern
+    // we want 10 dashes of equal length
+    let dashLength = circleRadius / 3;
+    let dashGap = circleRadius / 10;
+
+    ctx.beginPath();
+    ctx.setLineDash([dashLength, dashGap]);
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.arc(airspeedX, airspeedY, circleRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // reset the line dash
+    ctx.setLineDash([]);
+  }
+
   renderAltitude() {
+    if (this.uavState.gearStatus === GearStatus.UP) {
+      this.#renderGearUpAltitudeIndicator();
+    } else {
+      this.#renderGearDownAltitudeIndicator();
+    }
+  }
+
+  #renderGearUpAltitudeIndicator() {
     let canvas = this.canvas;
     let altitudeX = (canvas.displayWidth / 6) * 5;
     let altitudeY = canvas.displayHeight / 2;
@@ -73,6 +129,43 @@ class MQ9Hud extends UAVHud {
       boxWidth,
       boxHeight
     );
+  }
+
+  #renderGearDownAltitudeIndicator() {
+    let canvas = this.canvas;
+    let altitudeX = (canvas.displayWidth / 6) * 5;
+    let altitudeY = canvas.displayHeight / 2 - 25;
+    let altitudeTextX = altitudeX - 0;
+    let altitudeTextY = altitudeY + 7;
+    let ctx = this.canvas.context;
+
+    // Draw the altitude text
+    ctx.font = this.getFont(20);
+    ctx.fillStyle = this.primaryTextColor;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      this.uavState.altitude.value.toFixed(0),
+      altitudeTextX,
+      altitudeTextY
+    );
+
+    // Draw the airspeed circle
+    let circleRadius = 40;
+
+    // Determine the stroke pattern
+    // we want 10 dashes of equal length
+    let dashLength = circleRadius / 3;
+    let dashGap = circleRadius / 10;
+
+    ctx.beginPath();
+    ctx.setLineDash([dashLength, dashGap]);
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.arc(altitudeX, altitudeY, circleRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // reset the line dash
+    ctx.setLineDash([]);
   }
 
   renderVerticalSpeed() {
@@ -169,7 +262,7 @@ class MQ9Hud extends UAVHud {
   renderBankIndicator() {
     let canvas = this.canvas;
     let bankX = canvas.displayWidth / 2;
-    let bankY = canvas.displayHeight - 250;
+    let bankY = canvas.displayHeight - 230;
     let bankRadius = 150;
     let bankAngles = [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60];
     let ctx = this.canvas.context;
@@ -416,9 +509,8 @@ class MQ9Hud extends UAVHud {
       y: canvas.displayHeight / 2,
     };
 
-    let ladderGapWidth = 75;
+    let ladderGapWidth = 85;
     let ladderWidth = this.getLadderWidth(ladder);
-    let ladderStyle = ladder < 0 ? "dotted" : "solid";
     let ladderVerticalSpacing = canvas.displayHeight / 23;
     // if this is the horizon ladder line, we dont need the vertical spacing
     ladderVerticalSpacing = ladder == 0 ? 0 : ladderVerticalSpacing;
@@ -498,6 +590,19 @@ class MQ9Hud extends UAVHud {
       ),
     };
 
+    // we need to draw the text for the ladder degree on the left side
+    if (ladderLine.degree !== 0) {
+      // we also need to rotate the text orientation by the bank degree
+      ctx.font = this.getFont(13);
+      ctx.fillStyle = this.primaryTextColor;
+      ctx.textAlign = "center";
+      let textY =
+        ladderLine.degree > 0
+          ? rotatedLeft.start.y + 18
+          : rotatedLeft.start.y - 10;
+      ctx.fillText(ladder.toString(), rotatedLeft.start.x + 12, textY);
+    }
+
     // rotate the right side of the ladder line by the bank degree
     let rotatedRight = {
       start: rotatePoint(
@@ -511,6 +616,18 @@ class MQ9Hud extends UAVHud {
         this.uavState.bank.degrees / 2
       ),
     };
+
+    // we need to draw the text for the ladder degree
+    if (ladderLine.degree !== 0) {
+      ctx.font = this.getFont(13);
+      ctx.fillStyle = this.primaryTextColor;
+      ctx.textAlign = "center";
+      let textY =
+        ladderLine.degree > 0
+          ? rotatedRight.start.y + 18
+          : rotatedRight.start.y - 10;
+      ctx.fillText(ladder.toString(), rotatedRight.start.x - 12, textY);
+    }
 
     // determine the number of dashes and the gap between them
     let numDashes = 3;
@@ -548,7 +665,7 @@ class MQ9Hud extends UAVHud {
       let rightVerticalLine = rotatePoint(
         { x: rotatedRight.end.x, y: rotatedRight.end.y - 10 },
         { x: rotatedRight.end.x, y: rotatedRight.end.y },
-        this.uavState.bank.degrees/2
+        this.uavState.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -563,9 +680,9 @@ class MQ9Hud extends UAVHud {
       let leftVerticalLine = rotatePoint(
         { x: rotatedLeft.end.x, y: rotatedLeft.end.y - 10 },
         { x: rotatedLeft.end.x, y: rotatedLeft.end.y },
-        this.uavState.bank.degrees/2
+        this.uavState.bank.degrees / 2
       );
-      
+
       ctx.beginPath();
       ctx.strokeStyle = this.primaryGraphicsColor;
       ctx.lineWidth = 1;
@@ -578,7 +695,7 @@ class MQ9Hud extends UAVHud {
       let leftVerticalLine = rotatePoint(
         { x: rotatedLeft.start.x, y: rotatedLeft.start.y + 12 },
         { x: rotatedLeft.start.x, y: rotatedLeft.start.y },
-        this.uavState.bank.degrees/2
+        this.uavState.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -593,7 +710,7 @@ class MQ9Hud extends UAVHud {
       let rightVerticalLine = rotatePoint(
         { x: rotatedRight.start.x, y: rotatedRight.start.y + 12 },
         { x: rotatedRight.start.x, y: rotatedRight.start.y },
-        this.uavState.bank.degrees/2
+        this.uavState.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -601,6 +718,235 @@ class MQ9Hud extends UAVHud {
       ctx.lineWidth = 1;
       ctx.moveTo(rotatedRight.start.x, rotatedRight.start.y);
       ctx.lineTo(rightVerticalLine.x, rightVerticalLine.y);
+      ctx.stroke();
+    }
+
+    // reset the line dash
+    ctx.setLineDash([]);
+  }
+
+  renderFlightPathMarker() {
+    let canvas = this.canvas;
+    let ctx = this.canvas.context;
+    let screenCenter = {
+      x: canvas.displayWidth / 2,
+      y: canvas.displayHeight / 2,
+    };
+    let ladderVerticalSpacing = canvas.displayHeight / 23;
+    let flightPathMarkerX = screenCenter.x;
+    let flightPathMarkerY = screenCenter.y;
+    let flightPathMarkerRadius = 8;
+    let flightPathMarkerLineLength = 14;
+
+    // move the flight path marker vertically based on gamma
+    flightPathMarkerY =
+      flightPathMarkerY - this.uavState.gamma.degrees * ladderVerticalSpacing;
+
+    const center = {
+      x: flightPathMarkerX,
+      y: flightPathMarkerY,
+    };
+
+    // First rotate the marker position around the screen center based on bank
+    const rotatedCenter = rotatePoint(
+      center,
+      screenCenter,
+      this.uavState.bank.degrees / 2
+    );
+
+    // Calculate the points for the marker relative to the rotated center
+    const topLine = {
+      start: {
+        x: rotatedCenter.x,
+        y: rotatedCenter.y - flightPathMarkerRadius,
+      },
+      end: {
+        x: rotatedCenter.x,
+        y:
+          rotatedCenter.y - flightPathMarkerRadius - flightPathMarkerLineLength,
+      },
+    };
+
+    const leftLine = {
+      start: {
+        x: rotatedCenter.x - flightPathMarkerRadius,
+        y: rotatedCenter.y,
+      },
+
+      end: {
+        x:
+          rotatedCenter.x - flightPathMarkerRadius - flightPathMarkerLineLength,
+        y: rotatedCenter.y,
+      },
+    };
+
+    const rightLine = {
+      start: {
+        x: rotatedCenter.x + flightPathMarkerRadius,
+        y: rotatedCenter.y,
+      },
+      end: {
+        x:
+          rotatedCenter.x + flightPathMarkerRadius + flightPathMarkerLineLength,
+        y: rotatedCenter.y,
+      },
+    };
+
+    // Rotate the lines around the rotated center by the bank angle
+    const rotatedTopLine = {
+      start: rotatePoint(
+        topLine.start,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint(
+        topLine.end,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    };
+
+    const rotatedLeftLine = {
+      start: rotatePoint(
+        leftLine.start,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint(
+        leftLine.end,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    };
+
+    const rotatedRightLine = {
+      start: rotatePoint(
+        rightLine.start,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint(
+        rightLine.end,
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    };
+
+    // Draw the circle at the rotated center position
+    ctx.beginPath();
+    ctx.arc(
+      rotatedCenter.x,
+      rotatedCenter.y,
+      flightPathMarkerRadius,
+      degToRad(0),
+      degToRad(360),
+      true
+    );
+    ctx.stroke();
+
+    // Draw the rotated lines
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(rotatedTopLine.start.x, rotatedTopLine.start.y);
+    ctx.lineTo(rotatedTopLine.end.x, rotatedTopLine.end.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(rotatedLeftLine.start.x, rotatedLeftLine.start.y);
+    ctx.lineTo(rotatedLeftLine.end.x, rotatedLeftLine.end.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(rotatedRightLine.start.x, rotatedRightLine.start.y);
+    ctx.lineTo(rotatedRightLine.end.x, rotatedRightLine.end.y);
+    ctx.stroke();
+
+    // we need to draw the boards status indicator, if the uav has boards
+    if (this.uavState.boardsStatus === BoardsStatus.NONE) {
+      // this type of UAV has no boards
+      return;
+    }
+
+    // draw the boards status indicator
+    let boardsPoint = {
+      start: rotatePoint({
+        x: rotatedLeftLine.start.x - flightPathMarkerRadius,
+        y: rotatedLeftLine.end.y + ((rotatedLeftLine.start.y - rotatedLeftLine.end.y)) + 3
+      },
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+      end: rotatePoint({
+        x: rotatedLeftLine.start.x - flightPathMarkerRadius,
+        y: ((rotatedLeftLine.start.y - rotatedLeftLine.end.y) / 2) + rotatedLeftLine.end.y
+      },
+        rotatedCenter,
+        this.uavState.bank.degrees / 2
+      ),
+    }
+    let halfBoardLineLength = 15;
+    let fullBoardLineLength = 30;
+    let currentBoardLineLength = 0;
+
+    switch (this.uavState.boardsStatus) {
+      case BoardsStatus.FULL:
+        currentBoardLineLength = fullBoardLineLength;
+        break;
+      case BoardsStatus.HALF:
+        currentBoardLineLength = halfBoardLineLength;
+        break;
+      case BoardsStatus.IN:
+        currentBoardLineLength = 0;
+        break;
+      default:
+        currentBoardLineLength = 0;
+        break;
+    }
+
+    // draw the boards status indicator
+    ctx.beginPath();
+    ctx.strokeStyle = this.primaryGraphicsColor;
+    ctx.lineWidth = 1;
+    ctx.moveTo(boardsPoint.start.x, boardsPoint.start.y);
+    ctx.lineTo(boardsPoint.end.x, boardsPoint.end.y + currentBoardLineLength);
+    ctx.stroke();
+
+    // draw the locked boards indicator
+    // if they are locked, we need to draw circles on both ends of the lines
+    // on the sides of the flight path marker
+    if (this.uavState.boardsStatus === BoardsStatus.LOCKED) {
+      let leftCircle = {
+        x:
+          rotatedLeftLine.start.x -
+          flightPathMarkerRadius / 2 -
+          flightPathMarkerLineLength +
+          2,
+        y: rotatedLeftLine.end.y,
+      };
+      let rightCircle = {
+        x:
+          rotatedRightLine.start.x +
+          flightPathMarkerRadius / 2 +
+          flightPathMarkerLineLength -
+          2,
+        y: rotatedRightLine.end.y,
+      };
+      // draw the circles
+      ctx.beginPath();
+      ctx.arc(leftCircle.x, leftCircle.y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = this.primaryGraphicsColor;
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(rightCircle.x, rightCircle.y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = this.primaryGraphicsColor;
+      ctx.fill();
       ctx.stroke();
     }
   }
@@ -624,7 +970,7 @@ class MQ9Hud extends UAVHud {
     // ctx.strokeStyle = "black";
     // ctx.lineWidth = 1;
     // ctx.strokeRect(headingX-headingStripWidth/2-10, headingY-headingStripHeight-10, headingStripWidth+20, headingStripHeight+50);
-    // ctx.fillStyle = "black";  
+    // ctx.fillStyle = "black";
     // ctx.fillRect(headingX-headingStripWidth/2-10, headingY-headingStripHeight-10, headingStripWidth+20, headingStripHeight+50);
 
     let ticks = [];
@@ -756,14 +1102,14 @@ class MQ9Hud extends UAVHud {
     ctx.strokeStyle = this.primaryGraphicsColor;
     ctx.lineWidth = 1;
     ctx.strokeRect(
-      headingX - headingBoxWidth / 2 + 5,
+      headingX - headingBoxWidth / 2,
       headingY - headingBoxHeight / 2 - 6,
       headingBoxWidth,
       headingBoxHeight
     );
     ctx.fillStyle = "black";
     ctx.fillRect(
-      headingX - headingBoxWidth / 2 + 5,
+      headingX - headingBoxWidth / 2,
       headingY - headingBoxHeight / 2 - 6,
       headingBoxWidth,
       headingBoxHeight
@@ -775,7 +1121,7 @@ class MQ9Hud extends UAVHud {
     ctx.textAlign = "center";
     ctx.fillText(
       normalizedHeading.toFixed(0).padStart(3, "0"),
-      headingX + 5,
+      headingX,
       headingY - 1
     );
   }

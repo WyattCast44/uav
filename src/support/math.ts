@@ -1,3 +1,6 @@
+import Feet from "./Feet";
+import Meters from "./Meters";
+
 /**
  * Convert a degree to a radian
  *
@@ -83,4 +86,18 @@ function rotatePoint(
   };
 }
 
-export { degToRad, radToDeg, polarToCartesian, normalizeHeading, rotatePoint };
+/**
+ * Calculate the visible line of sight from the given altitude
+ *
+ * @param altitude - The altitude in feet
+ * @returns The visible line of sight in feet
+ */
+function calculateVisibleLineOfSight(altitude: Feet): Feet {
+  let meanRadiusOfEarth = new Meters(6_378_100);
+
+  let visibleLineOfSight = Math.sqrt(Math.pow((meanRadiusOfEarth.meters + altitude.meters), 2) - Math.pow(meanRadiusOfEarth.meters, 2));
+
+  return Feet.fromMeters(visibleLineOfSight);
+}
+
+export { degToRad, radToDeg, polarToCartesian, normalizeHeading, rotatePoint, calculateVisibleLineOfSight };

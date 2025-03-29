@@ -9,6 +9,7 @@ import {
   Wind,
   Temperature,
 } from "./support";
+import { BoardsStatus } from "./uav/BoardsStatus";
 
 // create & init the UAV
 let reaper = new MQ9();
@@ -17,12 +18,14 @@ reaper.setTailNumber("732");
 // create & init the UAV state
 let reaperState = new UAVState(reaper);
 
+reaperState.boardsStatus = BoardsStatus.FULL;
+
 reaperState.setIntialAttitude({
   heading: new CardinalDegree(360),
   keas: new Knots(120),
   altitude: new Feet(20_000),
-  gamma: -3,
-  bank: 0,
+  gamma: -5,
+  bank: 45,
 });
 
 // create & init the environment
@@ -46,17 +49,15 @@ if (target) {
   console.error("HUD target element not found");
 }
 
-hud.render();
-
 // init the simulation
 let simulation = new Simulation(reaper, reaperState, environment);
 
 console.log(hud, simulation);
 
 // setup an animation loop
-let animationLoop = () => {
-  requestAnimationFrame(animationLoop);
+function animationLoop() {
   hud.render();
-};
+  requestAnimationFrame(animationLoop);
+}
 
 animationLoop();
