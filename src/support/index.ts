@@ -9,7 +9,7 @@ import Gravity from "./Gravity";
 import Radians from "./Radians";
 import Wind from "./Wind";
 import Environment from "./Enviroment";
-
+import KeyboardControls from "./KeyboardControls";
 
 export {
   Knots,
@@ -23,4 +23,5 @@ export {
   Gravity,
   Wind,
   Environment,
+  KeyboardControls,
 };

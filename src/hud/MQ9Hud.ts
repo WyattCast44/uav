@@ -8,10 +8,16 @@ import { GearStatus, MQ9, UAVState } from "../uav";
 import UAVHud from "./UAVHud";
 import { degToRad } from "three/src/math/MathUtils.js";
 import { BoardsStatus } from "../uav/BoardsStatus";
+import { Simulation } from "../sim";
 
 class MQ9Hud extends UAVHud {
-  constructor(uav: MQ9, uavState: UAVState, environment: Environment) {
-    super(uav, uavState, environment);
+  constructor(
+    uav: MQ9,
+    uavState: UAVState,
+    environment: Environment,
+    simulation: Simulation
+  ) {
+    super(uav, uavState, environment, simulation);
 
     this.canvas.addRenderableItem(this.renderAirspeed.bind(this));
     this.canvas.addRenderableItem(this.renderAltitude.bind(this));
@@ -22,6 +28,7 @@ class MQ9Hud extends UAVHud {
     this.canvas.addRenderableItem(this.renderGForce.bind(this));
     this.canvas.addRenderableItem(this.renderBankIndicator.bind(this));
     this.canvas.addRenderableItem(this.renderClock.bind(this));
+    this.canvas.addRenderableItem(this.renderSimulationTime.bind(this));
     this.canvas.addRenderableItem(this.renderWind.bind(this));
     this.canvas.addRenderableItem(this.renderHeadingBar.bind(this));
     this.canvas.addRenderableItem(this.renderPitchLadder.bind(this));
@@ -354,7 +361,7 @@ class MQ9Hud extends UAVHud {
     let clockY = canvas.displayHeight - canvas.displayHeight + 110;
     let ctx = this.canvas.context;
 
-    let clock = new Date();
+    let clock = this.canvas.currentTime;
     let clockHours = clock.getHours().toString().padStart(2, "0");
     let clockMinutes = clock.getMinutes().toString().padStart(2, "0");
     let clockSeconds = clock.getSeconds().toString().padStart(2, "0");
@@ -365,6 +372,22 @@ class MQ9Hud extends UAVHud {
     ctx.fillStyle = this.primaryTextColor;
     ctx.textAlign = "center";
     ctx.fillText(clockString, clockX, clockY);
+  }
+
+  renderSimulationTime() {
+    let canvas = this.canvas;
+    let simulationTimeX = (canvas.displayWidth / 6) * 5;
+    let simulationTimeY = canvas.displayHeight - canvas.displayHeight + 130;
+    let ctx = this.canvas.context;
+
+    ctx.font = this.getFont(15);
+    ctx.fillStyle = this.primaryTextColor;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      this.simulation.getDuration(),
+      simulationTimeX,
+      simulationTimeY
+    );
   }
 
   renderWind() {
@@ -874,21 +897,28 @@ class MQ9Hud extends UAVHud {
 
     // draw the boards status indicator
     let boardsPoint = {
-      start: rotatePoint({
-        x: rotatedLeftLine.start.x - flightPathMarkerRadius,
-        y: rotatedLeftLine.end.y + ((rotatedLeftLine.start.y - rotatedLeftLine.end.y)) + 3
-      },
+      start: rotatePoint(
+        {
+          x: rotatedLeftLine.start.x - flightPathMarkerRadius,
+          y:
+            rotatedLeftLine.end.y +
+            (rotatedLeftLine.start.y - rotatedLeftLine.end.y) +
+            3,
+        },
         rotatedCenter,
         this.uavState.bank.degrees / 2
       ),
-      end: rotatePoint({
-        x: rotatedLeftLine.start.x - flightPathMarkerRadius,
-        y: ((rotatedLeftLine.start.y - rotatedLeftLine.end.y) / 2) + rotatedLeftLine.end.y
-      },
+      end: rotatePoint(
+        {
+          x: rotatedLeftLine.start.x - flightPathMarkerRadius,
+          y:
+            (rotatedLeftLine.start.y - rotatedLeftLine.end.y) / 2 +
+            rotatedLeftLine.end.y,
+        },
         rotatedCenter,
         this.uavState.bank.degrees / 2
       ),
-    }
+    };
     let halfBoardLineLength = 15;
     let fullBoardLineLength = 30;
     let currentBoardLineLength = 0;

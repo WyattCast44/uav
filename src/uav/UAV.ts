@@ -4,7 +4,6 @@ import UAVLimits from "./UAVLimits";
 import UAVDynamics from "./UAVDynamics";
 
 class UAV {
-  tailNumber: string = "";
   dynamics: UAVDynamics = new UAVDynamics({
     rollRate: 10,
     rollRateCompensator: 1,
@@ -13,11 +12,10 @@ class UAV {
     maxAltitude: new Feet(10_000),
     maxBankAngle: new Degrees(60),
     maxLoadFactor: 8,
+    maxGamma: new Degrees(60),
   });
 
-  setTailNumber(tailNumber: string) {
-    this.tailNumber = tailNumber;
-  }
+  constructor(public tailNumber: string = "N/A") {}
 }
 
 export default UAV;

@@ -159,6 +159,18 @@ class UAVState {
    */
   boardsStatus: BoardsStatus = BoardsStatus.NONE;
 
+  /**
+   * The position of the UAV. This is the position of the UAV in the world.
+   * 
+   * It will be relative to the starting position of the UAV.
+   *
+   * Units: unitless
+   */
+  position: {
+    x: number;
+    y: number;
+  } = { x: 0, y: 0 };
+
   constructor(uav: UAV) {
     this.uav = uav;
   }
@@ -169,12 +181,17 @@ class UAVState {
     altitude,
     gamma,
     bank,
+    position,
   }: {
     heading: number | CardinalDegree;
     keas: number | Knots;
     altitude: number | Feet;
     gamma: number | Degrees;
     bank: number | Degrees;
+    position: {
+      x: number;
+      y: number;
+    };
   }) {
     this.heading =
       heading instanceof CardinalDegree ? heading : new CardinalDegree(heading);
@@ -182,6 +199,7 @@ class UAVState {
     this.altitude = altitude instanceof Feet ? altitude : new Feet(altitude);
     this.gamma = gamma instanceof Degrees ? gamma : new Degrees(gamma);
     this.bank = bank instanceof Degrees ? bank : new Degrees(bank);
+    this.position = position;
   }
 
   /**

@@ -1,6 +1,6 @@
 import { MQ9Hud } from "./hud";
 import { Simulation } from "./sim";
-import { MQ9, UAVState } from "./uav";
+import { MQ9, UAVCommandedAttitude, UAVState } from "./uav";
 import {
   CardinalDegree,
   Knots,
@@ -9,24 +9,6 @@ import {
   Wind,
   Temperature,
 } from "./support";
-import { BoardsStatus } from "./uav/BoardsStatus";
-
-// create & init the UAV
-let reaper = new MQ9();
-reaper.setTailNumber("732");
-
-// create & init the UAV state
-let reaperState = new UAVState(reaper);
-
-reaperState.boardsStatus = BoardsStatus.FULL;
-
-reaperState.setIntialAttitude({
-  heading: new CardinalDegree(360),
-  keas: new Knots(120),
-  altitude: new Feet(20_000),
-  gamma: -5,
-  bank: 45,
-});
 
 // create & init the environment
 let environment = new Environment({
@@ -34,30 +16,86 @@ let environment = new Environment({
   surfaceTemperature: Temperature.standardDayAtSeaLevel("F"),
 });
 
+// create & init the UAV
+let reaper = new MQ9("732");
+
+// create & init the UAV state
+let reaperState = new UAVState(reaper);
+
+reaperState.setIntialAttitude({
+  heading: new CardinalDegree(360),
+  keas: new Knots(120),
+  altitude: new Feet(20_000),
+  gamma: 0,
+  bank: 0,
+  position: {
+    x: 0,
+    y: 0,
+  },
+});
+
 // init the performance values
 reaperState.updatePerformanceValues(environment);
 
-// init the HUD
-let hud = new MQ9Hud(reaper, reaperState, environment);
+// init the commanded attitude
+let commandedAttitude = new UAVCommandedAttitude(reaper, reaperState);
 
-// mount the HUD to the target element
-let target = document.getElementById("hud");
-
-if (target) {
-  hud.mount(target);
-} else {
-  console.error("HUD target element not found");
-}
+console.log(commandedAttitude);
 
 // init the simulation
-let simulation = new Simulation(reaper, reaperState, environment);
+let simulation = new Simulation({
+  uav: reaper,
+  uavState: reaperState,
+  environment: environment,
+  startTime: new Date(),
+});
 
-console.log(hud, simulation);
+// hook up event listeners to start/stop the simulation
+window.addEventListener("keyup", (event: KeyboardEvent) => {
+  if (event.key === " ") {
+    if (simulation.isRunning()) {
+      simulation.stop();
+      lastTimestamp = 0; // Reset timestamp when pausing
+    } else {
+      simulation.start(new Date());
+      lastTimestamp = performance.now(); // Set initial timestamp when starting
+    }
+  }
+});
 
-// setup an animation loop
-function animationLoop() {
-  hud.render();
+// init and mount the HUD
+let hud = new MQ9Hud(reaper, reaperState, environment, simulation);
+let target = document.getElementById("hud") as HTMLElement;
+hud.mount(target);
+
+// setup animation loop variables
+let lastTimestamp = 0;
+
+// render the HUD at least once
+hud.render(simulation.currentTime ?? new Date());
+
+function animationLoop(timestamp: number) {
+  if (!simulation.isRunning()) {
+    requestAnimationFrame(animationLoop);
+    return;
+  }
+
+  if (lastTimestamp === 0) {
+    lastTimestamp = timestamp;
+    requestAnimationFrame(animationLoop);
+    return;
+  }
+
+  let deltaTime = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+
+  simulation.incrementTime(deltaTime);
+  reaperState.updatePerformanceValues(environment);
+  hud.render(simulation.currentTime ?? new Date());
+
   requestAnimationFrame(animationLoop);
 }
 
-animationLoop();
+// Start the animation loop
+requestAnimationFrame(animationLoop);
+

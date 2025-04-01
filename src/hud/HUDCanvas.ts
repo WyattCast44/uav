@@ -6,7 +6,7 @@ class HUDCanvas {
   dpr: number = 1;
   displayWidth: number = 0;
   displayHeight: number = 0;
-
+  currentTime: Date = new Date();
   displayItems: Array<CallableFunction> = [];
 
   constructor() {
@@ -59,7 +59,7 @@ class HUDCanvas {
     Object.assign(this.canvas.style, styles);
 
     // Add event listener for resize
-    window.addEventListener("resize", this.render.bind(this));
+    window.addEventListener("resize", this.render.bind(this, this.currentTime));
   }
 
   /**
@@ -82,8 +82,6 @@ class HUDCanvas {
 
     this.displayWidth = this.canvas.clientWidth;
     this.displayHeight = this.canvas.clientHeight;
-
-    this.#resizeCanvas();
 
     this.isMounted = true;
   }
@@ -109,10 +107,12 @@ class HUDCanvas {
     this.isMounted = false;
   }
 
-  render(): void {
+  render(currentTime: Date): void {
     this.clear();
 
     this.#resizeCanvas();
+
+    this.currentTime = currentTime;
 
     this.displayItems.forEach((item) => {
       item();

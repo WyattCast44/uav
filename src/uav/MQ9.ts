@@ -5,6 +5,10 @@ import UAV from "./UAV";
 import { BoardsStatus } from "./BoardsStatus";
 
 class MQ9 extends UAV {
+  constructor(tailNumber: string = "MQ9") {
+    super(tailNumber);
+  }
+
   boardsStatus: BoardsStatus = BoardsStatus.IN;
   dynamics = new UAVDynamics({
     rollRate: 10,
@@ -14,6 +18,7 @@ class MQ9 extends UAV {
     maxAltitude: new Feet(50_000),
     maxBankAngle: new Degrees(45),
     maxLoadFactor: 2.5,
+    maxGamma: new Degrees(45),
   });
 }
 

@@ -6,6 +6,7 @@ import UAVDynamics from "./UAVDynamics";
 import UAVControlMode from "./UAVControlMode";
 import UAVTSPI from "./UAVTSPI";
 import UAVPosition from "./UAVPosition";
+import UAVCommandedAttitude from "./UAVCommandedAttitude";
 import { GearStatus } from "./GearStatus";
 
 export {
@@ -18,4 +19,5 @@ export {
   UAVState,
   UAVTSPI,
   UAVPosition,
+  UAVCommandedAttitude,
 };
