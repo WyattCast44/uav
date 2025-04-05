@@ -13,6 +13,10 @@ class MQ9 extends UAV {
   dynamics = new UAVDynamics({
     rollRate: 10,
     rollRateCompensator: 0.6,
+    pitchRate: 10,
+    pitchRateCompensator: 0.6,
+    accelKeasPerSecond: 1,
+    accelKnotsPerSecondCompensator: 1,
   });
   limits = new UAVLimits({
     maxAltitude: new Feet(50_000),

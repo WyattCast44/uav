@@ -8,6 +8,9 @@ import UAVTSPI from "./UAVTSPI";
 import UAVPosition from "./UAVPosition";
 import UAVCommandedAttitude from "./UAVCommandedAttitude";
 import { GearStatus } from "./GearStatus";
+import UAVControls from "./UAVControls";
+import UAVAttitudeEstimator from "./UAVAttitudeEstimator";
+
 
 export {
   GearStatus,
@@ -20,4 +23,6 @@ export {
   UAVTSPI,
   UAVPosition,
   UAVCommandedAttitude,
+  UAVControls,
+  UAVAttitudeEstimator,
 };

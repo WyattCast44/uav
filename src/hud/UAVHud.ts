@@ -1,11 +1,10 @@
-import { UAV, UAVState, UAVControlMode } from "../uav";
+import { UAV, UAVControlMode } from "../uav";
 import { Environment } from "../support";
 import HUDCanvas from "./HUDCanvas";
 import { Simulation } from "../sim";
 
 class UAVHud {
   uav: UAV;
-  uavState: UAVState;
   environment: Environment;
   simulation: Simulation;
 
@@ -42,13 +41,12 @@ class UAVHud {
    */
   secondaryTextColor: string = "white";
 
-  constructor(uav: UAV, uavState: UAVState, environment: Environment, simulation: Simulation) {
+  constructor(uav: UAV, environment: Environment, simulation: Simulation) {
     this.uav = uav;
-    this.uavState = uavState;
     this.environment = environment;
     this.simulation = simulation;
     this.canvas = new HUDCanvas();
-    this.controlMode = uavState.controlMode;
+    this.controlMode = uav.state.controlMode;
     this.#setGraphicsColors();
   }
 

@@ -1,6 +1,6 @@
 import { MQ9Hud } from "./hud";
 import { Simulation } from "./sim";
-import { MQ9, UAVCommandedAttitude, UAVState } from "./uav";
+import { MQ9 } from "./uav";
 import {
   CardinalDegree,
   Knots,
@@ -8,26 +8,24 @@ import {
   Environment,
   Wind,
   Temperature,
+  Degrees,
 } from "./support";
 
 // create & init the environment
 let environment = new Environment({
-  wind: new Wind({ direction: 317, speed: 69 }),
+  wind: new Wind({ direction: 270, speed: 30 }),
   surfaceTemperature: Temperature.standardDayAtSeaLevel("F"),
 });
 
 // create & init the UAV
 let reaper = new MQ9("732");
 
-// create & init the UAV state
-let reaperState = new UAVState(reaper);
-
-reaperState.setIntialAttitude({
+reaper.state.setIntialAttitude({
   heading: new CardinalDegree(360),
   keas: new Knots(120),
   altitude: new Feet(20_000),
-  gamma: 0,
-  bank: 0,
+  gamma: new Degrees(0),
+  bank: new Degrees(0),
   position: {
     x: 0,
     y: 0,
@@ -35,20 +33,21 @@ reaperState.setIntialAttitude({
 });
 
 // init the performance values
-reaperState.updatePerformanceValues(environment);
-
-// init the commanded attitude
-let commandedAttitude = new UAVCommandedAttitude(reaper, reaperState);
-
-console.log(commandedAttitude);
+reaper.state.updatePerformanceValues(environment);
 
 // init the simulation
 let simulation = new Simulation({
   uav: reaper,
-  uavState: reaperState,
   environment: environment,
   startTime: new Date(),
 });
+
+// init and mount the HUD
+let hud = new MQ9Hud(reaper, environment, simulation);
+hud.mount(document.getElementById("hud") as HTMLElement);
+
+// render the HUD at least once
+hud.render(simulation.startTime as Date);
 
 // hook up event listeners to start/stop the simulation
 window.addEventListener("keyup", (event: KeyboardEvent) => {
@@ -63,39 +62,41 @@ window.addEventListener("keyup", (event: KeyboardEvent) => {
   }
 });
 
-// init and mount the HUD
-let hud = new MQ9Hud(reaper, reaperState, environment, simulation);
-let target = document.getElementById("hud") as HTMLElement;
-hud.mount(target);
-
 // setup animation loop variables
 let lastTimestamp = 0;
 
-// render the HUD at least once
-hud.render(simulation.currentTime ?? new Date());
-
 function animationLoop(timestamp: number) {
+  // if the simulation is not running, don't render, but continue the loop
   if (!simulation.isRunning()) {
     requestAnimationFrame(animationLoop);
     return;
   }
 
+  // if the last timestamp is 0, set it to the current timestamp and continue the loop
+  // the lastTimestamp might be 0 if the simulation was paused.
+  // or it might be 0 if the application was just loaded.
   if (lastTimestamp === 0) {
     lastTimestamp = timestamp;
     requestAnimationFrame(animationLoop);
     return;
   }
 
+  // calculate the delta time between the current and last frame
   let deltaTime = timestamp - lastTimestamp;
   lastTimestamp = timestamp;
 
+  // increment the simulation time by the delta time
   simulation.incrementTime(deltaTime);
-  reaperState.updatePerformanceValues(environment);
+
+  // update the performance values
+  reaper.state.updatePerformanceValues(environment);
+
+  // render the HUD
   hud.render(simulation.currentTime ?? new Date());
 
+  // continue the loop
   requestAnimationFrame(animationLoop);
 }
 
 // Start the animation loop
 requestAnimationFrame(animationLoop);
-

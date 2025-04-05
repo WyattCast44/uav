@@ -1,10 +1,9 @@
 import dayjs from 'dayjs'
 import { Environment } from "../support";
-import { UAV, UAVState } from "../uav";
+import { UAV } from "../uav";
 
 class Simulation {
   uav: UAV;
-  uavState: UAVState;
   environment: Environment;
 
   /**
@@ -42,17 +41,14 @@ class Simulation {
 
   constructor({
     uav,
-    uavState,
     environment,
     startTime,
   }: {
     uav: UAV;
-    uavState: UAVState;
     environment: Environment;
     startTime: Date | null;
   }) {
     this.uav = uav;
-    this.uavState = uavState;
     this.environment = environment;
     this.startTime = startTime;
     this.currentTime = (startTime) ? startTime : null;

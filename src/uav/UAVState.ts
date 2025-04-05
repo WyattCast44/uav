@@ -203,7 +203,11 @@ class UAVState {
   }
 
   /**
-   * Update the performance values of the UAV.
+   * Update the performance values of the UAV. This will 
+   * be used to calculate and update the performance values
+   * based on the current state of the UAV and the environmental 
+   * conditions. For example, the true airspeed will be calculated
+   * based on the equivalent airspeed and the current altitude.
    *
    * @param environment - The environment of the UAV.
    */

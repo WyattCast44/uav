@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Three.js + HUD</title>
+    <title>UAV Simulator</title>
     <link href="/src/app.css" rel="stylesheet" />
   </head>
   <body>
@@ -14,15 +14,20 @@
         class="w-full h-full p-2 flex items-center justify-center space-y-2 flex-col"
       >
         <div class="flex lg:space-x-2 flex-1 h-full w-full overflow-hidden">
+          <!-- hud -->
           <div
             id="hud"
             class="flex-1 border border-gray-500 flex items-center justify-center relative h-full aspect-square"
           ></div>
+
+          <!-- virtual world -->
           <div
             id="virtual-world"
             class="flex-1 border border-gray-500 flex items-center justify-center relative w-full h-full"
           ></div>
         </div>
+
+        <!-- map -->
         <div
           id="map"
           class="w-full h-1/2 border border-gray-500 flex items-center justify-center print:hidden"

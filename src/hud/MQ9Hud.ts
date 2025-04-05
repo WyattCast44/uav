@@ -4,20 +4,15 @@ import {
   rotatePoint,
 } from "../support/math";
 import { Environment } from "../support";
-import { GearStatus, MQ9, UAVState } from "../uav";
+import { GearStatus, MQ9 } from "../uav";
 import UAVHud from "./UAVHud";
 import { degToRad } from "three/src/math/MathUtils.js";
 import { BoardsStatus } from "../uav/BoardsStatus";
 import { Simulation } from "../sim";
 
 class MQ9Hud extends UAVHud {
-  constructor(
-    uav: MQ9,
-    uavState: UAVState,
-    environment: Environment,
-    simulation: Simulation
-  ) {
-    super(uav, uavState, environment, simulation);
+  constructor(uav: MQ9, environment: Environment, simulation: Simulation) {
+    super(uav, environment, simulation);
 
     this.canvas.addRenderableItem(this.renderAirspeed.bind(this));
     this.canvas.addRenderableItem(this.renderAltitude.bind(this));
@@ -36,7 +31,7 @@ class MQ9Hud extends UAVHud {
   }
 
   renderAirspeed() {
-    if (this.uavState.gearStatus === GearStatus.UP) {
+    if (this.uav.state.gearStatus === GearStatus.UP) {
       this.#renderGearUpAirspeedIndicator();
     } else {
       this.#renderGearDownAirspeedIndicator();
@@ -53,7 +48,7 @@ class MQ9Hud extends UAVHud {
     ctx.font = this.getFont(20);
     ctx.fillStyle = this.primaryTextColor;
     ctx.textAlign = "center";
-    ctx.fillText(this.uavState.keas.value.toFixed(0), airspeedX, airspeedY);
+    ctx.fillText(this.uav.state.keas.value.toFixed(0), airspeedX, airspeedY);
 
     // Draw the airspeed box
     ctx.strokeStyle = this.primaryGraphicsColor;
@@ -81,7 +76,7 @@ class MQ9Hud extends UAVHud {
     ctx.fillStyle = this.primaryTextColor;
     ctx.textAlign = "center";
     ctx.fillText(
-      this.uavState.keas.value.toFixed(0),
+      this.uav.state.keas.value.toFixed(0),
       airspeedTextX,
       airspeedTextY
     );
@@ -106,7 +101,7 @@ class MQ9Hud extends UAVHud {
   }
 
   renderAltitude() {
-    if (this.uavState.gearStatus === GearStatus.UP) {
+    if (this.uav.state.gearStatus === GearStatus.UP) {
       this.#renderGearUpAltitudeIndicator();
     } else {
       this.#renderGearDownAltitudeIndicator();
@@ -123,7 +118,11 @@ class MQ9Hud extends UAVHud {
     ctx.font = this.getFont(20);
     ctx.fillStyle = this.primaryTextColor;
     ctx.textAlign = "center";
-    ctx.fillText(this.uavState.altitude.value.toFixed(0), altitudeX, altitudeY);
+    ctx.fillText(
+      this.uav.state.altitude.value.toFixed(0),
+      altitudeX,
+      altitudeY
+    );
 
     // Draw the altitude box
     ctx.strokeStyle = this.primaryGraphicsColor;
@@ -151,7 +150,7 @@ class MQ9Hud extends UAVHud {
     ctx.fillStyle = this.primaryTextColor;
     ctx.textAlign = "center";
     ctx.fillText(
-      this.uavState.altitude.value.toFixed(0),
+      this.uav.state.altitude.value.toFixed(0),
       altitudeTextX,
       altitudeTextY
     );
@@ -186,7 +185,7 @@ class MQ9Hud extends UAVHud {
     ctx.fillStyle = this.secondaryTextColor;
     ctx.textAlign = "center";
     ctx.fillText(
-      this.uavState.verticalVelocity.toFixed(0),
+      this.uav.state.verticalVelocity.toFixed(0),
       verticalSpeedX,
       verticalSpeedY
     );
@@ -234,7 +233,7 @@ class MQ9Hud extends UAVHud {
     ctx.fillStyle = this.secondaryTextColor;
     ctx.textAlign = "left";
     ctx.fillText(
-      "GS " + this.uavState.groundSpeed.value.toFixed(0),
+      "GS " + this.uav.state.groundSpeed.value.toFixed(0),
       groundSpeedX,
       groundSpeedY
     );
@@ -250,7 +249,7 @@ class MQ9Hud extends UAVHud {
     ctx.font = this.getFont(15);
     ctx.fillStyle = this.secondaryTextColor;
     ctx.textAlign = "left";
-    ctx.fillText("M " + this.uavState.mach.toFixed(2), machX, machY);
+    ctx.fillText("M " + this.uav.state.mach.toFixed(2), machX, machY);
   }
 
   renderGForce() {
@@ -263,7 +262,11 @@ class MQ9Hud extends UAVHud {
     ctx.font = this.getFont(15);
     ctx.fillStyle = this.secondaryTextColor;
     ctx.textAlign = "left";
-    ctx.fillText("G  " + this.uavState.loadFactor.toFixed(1), gForceX, gForceY);
+    ctx.fillText(
+      "G  " + this.uav.state.loadFactor.toFixed(1),
+      gForceX,
+      gForceY
+    );
   }
 
   renderBankIndicator() {
@@ -281,7 +284,7 @@ class MQ9Hud extends UAVHud {
 
       // TODO: Add commanded bank angle
       if (angle === 45 || angle === -45) {
-        if (Math.abs(this.uavState.bank.degrees) >= 30) {
+        if (Math.abs(this.uav.state.bank.degrees) >= 30) {
           tickLength = 15;
         } else {
           tickLength = 0;
@@ -290,7 +293,7 @@ class MQ9Hud extends UAVHud {
 
       // TODO: Add commanded bank angle
       if (angle === 60 || angle === -60) {
-        if (Math.abs(this.uavState.bank.degrees) >= 45) {
+        if (Math.abs(this.uav.state.bank.degrees) >= 45) {
           tickLength = 20;
         } else {
           tickLength = 0;
@@ -323,7 +326,7 @@ class MQ9Hud extends UAVHud {
     }
 
     // Draw the commanded bank angle
-    let commandedBankAngle = this.uavState.bank.degrees + 90;
+    let commandedBankAngle = this.uav.state.bank.degrees + 90;
     let tipPoint = polarToCartesian(
       bankX,
       bankY,
@@ -411,7 +414,7 @@ class MQ9Hud extends UAVHud {
     // if the wind was coming from 180, the wind barb would be vertical and pointing up
     // if the wind was coming from 90, the wind barb would be horizontal and pointing to the left
     let windBarbAngle =
-      ((windDirectionCardinal - this.uavState.heading.degrees) % 360) - 180;
+      ((windDirectionCardinal - this.uav.state.heading.degrees) % 360) - 180;
 
     let windBarbTip = {
       x: windBarbX,
@@ -604,12 +607,12 @@ class MQ9Hud extends UAVHud {
       start: rotatePoint(
         pitchRotatedLeft.start,
         screenCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         pitchRotatedLeft.end,
         screenCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
 
@@ -631,12 +634,12 @@ class MQ9Hud extends UAVHud {
       start: rotatePoint(
         pitchRotatedRight.start,
         screenCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         pitchRotatedRight.end,
         screenCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
 
@@ -688,7 +691,7 @@ class MQ9Hud extends UAVHud {
       let rightVerticalLine = rotatePoint(
         { x: rotatedRight.end.x, y: rotatedRight.end.y - 10 },
         { x: rotatedRight.end.x, y: rotatedRight.end.y },
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -703,7 +706,7 @@ class MQ9Hud extends UAVHud {
       let leftVerticalLine = rotatePoint(
         { x: rotatedLeft.end.x, y: rotatedLeft.end.y - 10 },
         { x: rotatedLeft.end.x, y: rotatedLeft.end.y },
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -718,7 +721,7 @@ class MQ9Hud extends UAVHud {
       let leftVerticalLine = rotatePoint(
         { x: rotatedLeft.start.x, y: rotatedLeft.start.y + 12 },
         { x: rotatedLeft.start.x, y: rotatedLeft.start.y },
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -733,7 +736,7 @@ class MQ9Hud extends UAVHud {
       let rightVerticalLine = rotatePoint(
         { x: rotatedRight.start.x, y: rotatedRight.start.y + 12 },
         { x: rotatedRight.start.x, y: rotatedRight.start.y },
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       );
 
       ctx.beginPath();
@@ -763,7 +766,7 @@ class MQ9Hud extends UAVHud {
 
     // move the flight path marker vertically based on gamma
     flightPathMarkerY =
-      flightPathMarkerY - this.uavState.gamma.degrees * ladderVerticalSpacing;
+      flightPathMarkerY - this.uav.state.gamma.degrees * ladderVerticalSpacing;
 
     const center = {
       x: flightPathMarkerX,
@@ -774,7 +777,7 @@ class MQ9Hud extends UAVHud {
     const rotatedCenter = rotatePoint(
       center,
       screenCenter,
-      this.uavState.bank.degrees / 2
+      this.uav.state.bank.degrees / 2
     );
 
     // Calculate the points for the marker relative to the rotated center
@@ -820,12 +823,12 @@ class MQ9Hud extends UAVHud {
       start: rotatePoint(
         topLine.start,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         topLine.end,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
 
@@ -833,12 +836,12 @@ class MQ9Hud extends UAVHud {
       start: rotatePoint(
         leftLine.start,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         leftLine.end,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
 
@@ -846,12 +849,12 @@ class MQ9Hud extends UAVHud {
       start: rotatePoint(
         rightLine.start,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         rightLine.end,
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
 
@@ -890,7 +893,7 @@ class MQ9Hud extends UAVHud {
     ctx.stroke();
 
     // we need to draw the boards status indicator, if the uav has boards
-    if (this.uavState.boardsStatus === BoardsStatus.NONE) {
+    if (this.uav.state.boardsStatus === BoardsStatus.NONE) {
       // this type of UAV has no boards
       return;
     }
@@ -906,7 +909,7 @@ class MQ9Hud extends UAVHud {
             3,
         },
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
       end: rotatePoint(
         {
@@ -916,14 +919,14 @@ class MQ9Hud extends UAVHud {
             rotatedLeftLine.end.y,
         },
         rotatedCenter,
-        this.uavState.bank.degrees / 2
+        this.uav.state.bank.degrees / 2
       ),
     };
     let halfBoardLineLength = 15;
     let fullBoardLineLength = 30;
     let currentBoardLineLength = 0;
 
-    switch (this.uavState.boardsStatus) {
+    switch (this.uav.state.boardsStatus) {
       case BoardsStatus.FULL:
         currentBoardLineLength = fullBoardLineLength;
         break;
@@ -949,7 +952,7 @@ class MQ9Hud extends UAVHud {
     // draw the locked boards indicator
     // if they are locked, we need to draw circles on both ends of the lines
     // on the sides of the flight path marker
-    if (this.uavState.boardsStatus === BoardsStatus.LOCKED) {
+    if (this.uav.state.boardsStatus === BoardsStatus.LOCKED) {
       let leftCircle = {
         x:
           rotatedLeftLine.start.x -
@@ -1006,8 +1009,8 @@ class MQ9Hud extends UAVHud {
     let ticks = [];
     let labels = [];
 
-    let normalizedHeading = this.uavState.heading.degrees;
-    let currentCourse = this.uavState.course.degrees;
+    let normalizedHeading = this.uav.state.heading.degrees;
+    let currentCourse = this.uav.state.course.degrees;
 
     // Draw heading +/- 30 degrees off the center current heading
     for (let offset = -30; offset <= 31; offset++) {
