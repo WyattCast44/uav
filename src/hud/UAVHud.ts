@@ -87,7 +87,7 @@ class UAVHud {
     this.canvas.unmount();
   }
 
-  render(currentTime: Date) {
+  render(currentTime?: Date) {
     this.canvas.render(currentTime);
   }
 }

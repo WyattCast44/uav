@@ -3,18 +3,19 @@ import UAVLimits from "./UAVLimits";
 import { Feet, Degrees } from "../support";
 import UAV from "./UAV";
 import { BoardsStatus } from "./BoardsStatus";
+import KeyboardUAVController from "./controllers/KeyboardUAVController";
 
 class MQ9 extends UAV {
-  constructor(tailNumber: string = "MQ9") {
-    super(tailNumber);
+  constructor(tailNumber: string = "MQ9", controller: KeyboardUAVController) {
+    super(tailNumber, controller);
   }
 
   boardsStatus: BoardsStatus = BoardsStatus.IN;
   dynamics = new UAVDynamics({
-    rollRate: 10,
-    rollRateCompensator: 0.6,
+    rollRate: 15,
+    rollRateCompensator: 1,
     pitchRate: 10,
-    pitchRateCompensator: 0.6,
+    pitchRateCompensator: 0.2,
     accelKeasPerSecond: 1,
     accelKnotsPerSecondCompensator: 1,
   });

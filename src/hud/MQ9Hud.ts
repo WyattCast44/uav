@@ -386,6 +386,7 @@ class MQ9Hud extends UAVHud {
   }
 
   renderClock() {
+    if (!this.canvas.currentTime) return;
     let canvas = this.canvas;
     let clockX = (canvas.displayWidth / 6) * 5;
     let clockY = canvas.displayHeight - canvas.displayHeight + 110;

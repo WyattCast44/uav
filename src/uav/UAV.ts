@@ -4,6 +4,7 @@ import UAVLimits from "./UAVLimits";
 import UAVDynamics from "./UAVDynamics";
 import UAVState from "./UAVState";
 import UAVCommandedAttitude from "./UAVCommandedAttitude";
+import KeyboardUAVController from "./controllers/KeyboardUAVController";
 
 class UAV {
   /**
@@ -47,30 +48,16 @@ class UAV {
     maxGamma: new Degrees(60),
   });  
 
-  constructor(public tailNumber: string = "N/A") {}
+  /**
+   * The controller for the UAV. This will be used to
+   * handle user input and update the commanded attitude.
+   */
+  controller: KeyboardUAVController;
+
+  constructor(public tailNumber: string = "N/A", controller: KeyboardUAVController) {
+    this.controller = controller;
+  }
 }
 
 export default UAV;
 
-// type UAVState = {
-
-//   // Commanded Attitude - will be set by the pilot or autopilot
-//   commandedHeading: number;
-//   commandedKeas: number;
-//   commandedAltitude: number;
-//   commandedGamma: number;
-//   commandedBank: number;
-
-//   // Position
-//   position?: {
-//     x: number; // is relative to earth. Will be in longitude.
-//     y: number; // is relative to earth. Will be in latitude.
-//     z: number; // is relative to earth. Will be in altitude. Will be in feet.
-//   };
-
-//   positionThreeJs?: {
-//     x: number; // is relative to the origin of the scene. Is aligned with the LONGITUDINAL axis of the aircraft.
-//     y: number; // is relative to the origin of the scene. Is aligned with the VERTICAL axis of the aircraft.
-//     z: number; // is relative to the origin of the scene. Is aligned with the LATERAL axis of the aircraft.
-//   };
-// };

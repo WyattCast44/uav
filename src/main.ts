@@ -12,6 +12,9 @@ import {
 } from "./support";
 import KeyboardUAVController from "./uav/controllers/KeyboardUAVController";
 
+// init the keyboard controller
+let controls = new KeyboardUAVController();
+
 // create & init the environment
 let environment = new Environment({
   wind: new Wind({ direction: 270, speed: 30 }),
@@ -19,7 +22,7 @@ let environment = new Environment({
 });
 
 // create & init the UAV
-let reaper = new MQ9("732");
+let reaper = new MQ9("732", controls);
 
 reaper.state.setIntialAttitude({
   heading: new CardinalDegree(360),
@@ -36,15 +39,11 @@ reaper.state.setIntialAttitude({
 // init the performance values
 reaper.state.updatePerformanceValues(environment);
 
-// init the keyboard controller
-let controls = new KeyboardUAVController(reaper);
-
 // init the simulation
 let simulation = new Simulation({
   uav: reaper,
   environment: environment,
-  controller: controls,
-  startTime: new Date(),
+  startTime: null, // Don't set start time until spacebar is pressed
 });
 
 // init and mount the HUD
@@ -52,43 +51,9 @@ let hud = new MQ9Hud(reaper, environment, simulation);
 hud.mount(document.getElementById("hud") as HTMLElement);
 
 // render the HUD at least once
-hud.render(simulation.startTime as Date);
+hud.render();
 
-// setup animation loop variables
-let lastTimestamp = 0;
-
-function animationLoop(timestamp: number) {
-  // if the simulation is not running, don't render, but continue the loop
-  if (!simulation.isRunning()) {
-    requestAnimationFrame(animationLoop);
-    return;
-  }
-
-  // if the last timestamp is 0, set it to the current timestamp and continue the loop
-  // the lastTimestamp might be 0 if the simulation was paused.
-  // or it might be 0 if the application was just loaded.
-  if (lastTimestamp === 0) {
-    lastTimestamp = timestamp;
-    requestAnimationFrame(animationLoop);
-    return;
-  }
-
-  // calculate the delta time between the current and last frame
-  let deltaTime = timestamp - lastTimestamp;
-  lastTimestamp = timestamp;
-
-  // increment the simulation time by the delta time
-  simulation.incrementTime(deltaTime);
-
-  // update the performance values
-  reaper.state.updatePerformanceValues(environment);
-
-  // render the HUD
-  hud.render(simulation.currentTime ?? new Date());
-
-  // continue the loop
-  requestAnimationFrame(animationLoop);
-}
-
-// Start the animation loop
-requestAnimationFrame(animationLoop);
+// Set up the render callback for the simulation
+simulation.setRenderCallback((time: Date) => {
+  hud.render(time);
+});

@@ -1,5 +1,3 @@
-import UAV from "../UAV";
-
 class KeyboardUAVController {
 
   public keys = {
@@ -9,6 +7,8 @@ class KeyboardUAVController {
     ArrowRight: false,
     Control: false,
     Shift: false,
+    A: false,
+    S: false,
   };
 
   public commands = {
@@ -16,12 +16,11 @@ class KeyboardUAVController {
     pitchDown: false,
     rollLeft: false,
     rollRight: false, 
-    trim: false,
     throttleUp: false,
     throttleDown: false,
   }
 
-  constructor(public uav: UAV) {
+  constructor() {
     this.registerEventListeners();
   }
 
@@ -34,7 +33,6 @@ class KeyboardUAVController {
   handleKeyDown(event: KeyboardEvent) {
     if(event.key === "Control") {
       this.keys.Control = true;
-      this.commands.trim = true;
     } else if(event.key === "ArrowUp") {
       this.keys.ArrowUp = true;
       this.commands.pitchUp = true;
@@ -49,25 +47,18 @@ class KeyboardUAVController {
       this.commands.rollRight = true;
     } else if(event.key === "Shift") {
       this.keys.Shift = true;
-    }
-
-    if(this.keys.Shift && this.keys.ArrowUp) {
+    } else if(event.key === "A" || event.key === "a") {
+      this.keys.A = true;
       this.commands.throttleUp = true;
-      this.commands.throttleDown = false;
-      this.commands.pitchUp = false;
-      this.commands.pitchDown = false;
-    } else if(this.keys.Shift && this.keys.ArrowDown) {
+    } else if(event.key === "S" || event.key === "s") {
+      this.keys.S = true;
       this.commands.throttleDown = true;
-      this.commands.throttleUp = false;
-      this.commands.pitchUp = false;
-      this.commands.pitchDown = false;
     }
   }
 
   handleKeyUp(event: KeyboardEvent) {
     if(event.key === "Control") {
       this.keys.Control = false;
-      this.commands.trim = false;
     } else if(event.key === "ArrowUp") {
       this.keys.ArrowUp = false;
       this.commands.pitchUp = false;
@@ -80,6 +71,14 @@ class KeyboardUAVController {
     } else if(event.key === "ArrowRight") {
       this.keys.ArrowRight = false;
       this.commands.rollRight = false;
+    } else if(event.key === "Shift") {
+      this.keys.Shift = false;
+    } else if(event.key === "A" || event.key === "a") {
+      this.keys.A = false;
+      this.commands.throttleUp = false;
+    } else if(event.key === "S" || event.key === "s") {
+      this.keys.S = false;
+      this.commands.throttleDown = false;
     }
   }
 

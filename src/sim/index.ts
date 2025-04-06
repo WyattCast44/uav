@@ -1,4 +1,4 @@
-import Simulation from "./sim";
+import Simulation from "./Simulation";
 
 export { Simulation };
 
