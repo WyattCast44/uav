@@ -16,7 +16,7 @@ class MQ9 extends UAV {
     rollRateCompensator: 1,
     pitchRate: 10,
     pitchRateCompensator: 0.2,
-    accelKeasPerSecond: 1,
+    accelKeasPerSecond: 2,
     accelKnotsPerSecondCompensator: 1,
   });
   limits = new UAVLimits({

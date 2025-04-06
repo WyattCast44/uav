@@ -1,6 +1,7 @@
 import UAV from "./UAV";
 import UAVState from "./UAVState";
 import { Degrees, Feet, Knots } from "../support";
+import { normalizeHeading } from "../support/math";
 
 class UAVAttitudeEstimator {
   constructor(public uav: UAV, public uavState: UAVState) {
@@ -86,6 +87,19 @@ class UAVAttitudeEstimator {
       const newAltitude = currentAltitude + altitudeChangeInTimeIncrement;
   
       this.uavState.altitude = new Feet(newAltitude);
+    }
+
+    // update the heading based on the commanded bank angle and subsequent roll rate
+    if(commanded.bank !== undefined) {
+      let currentHeading = this.uavState.heading.degrees;
+      
+      let currentTurnRateDegreesPerSecond = this.uavState.turnRate;
+
+      let headingChangeInTimeIncrement = currentTurnRateDegreesPerSecond * timeInSeconds;
+
+      const newHeading = normalizeHeading(currentHeading + headingChangeInTimeIncrement);
+
+      this.uavState.heading = new Degrees(newHeading)
     }
   }
 }
