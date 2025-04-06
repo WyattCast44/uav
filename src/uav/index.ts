@@ -4,25 +4,22 @@ import UAVState from "./UAVState";
 import UAVLimits from "./UAVLimits";
 import UAVDynamics from "./UAVDynamics";
 import UAVControlMode from "./UAVControlMode";
-import UAVTSPI from "./UAVTSPI";
 import UAVPosition from "./UAVPosition";
 import UAVCommandedAttitude from "./UAVCommandedAttitude";
 import { GearStatus } from "./GearStatus";
-import UAVControls from "./UAVControls";
 import UAVAttitudeEstimator from "./UAVAttitudeEstimator";
-
+import { BoardsStatus } from "./BoardsStatus";
 
 export {
+  BoardsStatus,
   GearStatus,
-  UAVLimits,
+  MQ9,
+  UAV,
+  UAVAttitudeEstimator,
+  UAVCommandedAttitude,
   UAVControlMode,
   UAVDynamics,
-  UAV,
-  MQ9,
-  UAVState,
-  UAVTSPI,
+  UAVLimits,
   UAVPosition,
-  UAVCommandedAttitude,
-  UAVControls,
-  UAVAttitudeEstimator,
+  UAVState,
 };

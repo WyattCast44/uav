@@ -28,6 +28,7 @@ class MQ9Hud extends UAVHud {
     this.canvas.addRenderableItem(this.renderHeadingBar.bind(this));
     this.canvas.addRenderableItem(this.renderPitchLadder.bind(this));
     this.canvas.addRenderableItem(this.renderFlightPathMarker.bind(this));
+    this.canvas.addRenderableItem(this.renderPosition.bind(this));
   }
 
   renderAirspeed() {
@@ -188,6 +189,32 @@ class MQ9Hud extends UAVHud {
       this.uav.state.verticalVelocity.toFixed(0),
       verticalSpeedX,
       verticalSpeedY
+    );
+  }
+
+  renderPosition() {
+    let canvas = this.canvas;
+    let ctx = this.canvas.context;
+    let positionX = (canvas.displayWidth/6)*5;
+    let positionY = canvas.displayHeight / 2 + 60;
+
+    let position = this.uav.state.position;
+
+    let xPositionValue = "X: " + position.x;
+    let yPositionValue = "Y: " + position.y;
+
+    // draw the position text
+    ctx.font = this.getFont(10);
+    ctx.fillStyle = this.primaryTextColor;
+    ctx.fillText(
+      xPositionValue,
+      positionX,
+      positionY
+    );
+    ctx.fillText(
+      yPositionValue,
+      positionX,
+      positionY + 15
     );
   }
 

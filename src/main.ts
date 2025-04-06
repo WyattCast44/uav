@@ -10,6 +10,7 @@ import {
   Temperature,
   Degrees,
 } from "./support";
+import KeyboardUAVController from "./uav/controllers/KeyboardUAVController";
 
 // create & init the environment
 let environment = new Environment({
@@ -35,10 +36,14 @@ reaper.state.setIntialAttitude({
 // init the performance values
 reaper.state.updatePerformanceValues(environment);
 
+// init the keyboard controller
+let controls = new KeyboardUAVController(reaper);
+
 // init the simulation
 let simulation = new Simulation({
   uav: reaper,
   environment: environment,
+  controller: controls,
   startTime: new Date(),
 });
 
@@ -48,19 +53,6 @@ hud.mount(document.getElementById("hud") as HTMLElement);
 
 // render the HUD at least once
 hud.render(simulation.startTime as Date);
-
-// hook up event listeners to start/stop the simulation
-window.addEventListener("keyup", (event: KeyboardEvent) => {
-  if (event.key === " ") {
-    if (simulation.isRunning()) {
-      simulation.stop();
-      lastTimestamp = 0; // Reset timestamp when pausing
-    } else {
-      simulation.start(new Date());
-      lastTimestamp = performance.now(); // Set initial timestamp when starting
-    }
-  }
-});
 
 // setup animation loop variables
 let lastTimestamp = 0;
